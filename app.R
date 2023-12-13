@@ -386,7 +386,7 @@ server <- function(input, output, session) {
                 textInput("millas", labelMandatory("Millas"), placeholder = ""),
                 textInput("cedula", labelMandatory("Cédula"), placeholder = ""),
                 textInput("email", labelMandatory("Email"), placeholder = ""),
-                checkboxGroupInput('planes', 'Planes', SQL_planes[,"nombre_plan"], selected = NULL, inline = TRUE),
+                checkboxGroupInput('planes', 'Planes', SQL_planes[,"nombre_plan"], inline = TRUE),
                 textAreaInput("comentario", "Comentario", placeholder = "", height = 100, width = "354px"),
                 helpText(labelMandatory(""), paste("Campo Obligatorio")),
                 actionButton(button_id, "Submit")
@@ -476,6 +476,7 @@ server <- function(input, output, session) {
   
   deleteData <- reactive({
     quary <- lapply(row_selection$rows, function(nr){
+      dbExecute(db, sprintf("DELETE FROM clientePlanes WHERE row_id = '%s';", nr))
       dbExecute(db, sprintf("DELETE FROM responses_df WHERE row_id = '%s'", nr))
     })
   })
@@ -521,10 +522,11 @@ server <- function(input, output, session) {
     
   })
   
-  # ___________Edit DATA_______________
+  # ___________Edit DATA CLIENT_______________
   observeEvent(input$edit_button, priority = 20,{
     
     SQL_df <- dbReadTable(db, "responses_df")
+    
     
     showModal(
       if(length(input$responses_table_rows_selected) > 1 ){
@@ -541,12 +543,29 @@ server <- function(input, output, session) {
       
       entry_form("submit_edit")
       
+      # to select planes of an client
+      row_selection <- SQL_df[input$responses_table_rows_selected, "row_id"]
+      SQL_planes <- dbReadTable(db, "planes")
+      planes_selected <- dbGetQuery(db, 
+                              sprintf(
+                                "SELECT 
+                                  	p.nombre_plan
+                                  FROM 
+                                  	planes p
+                                  INNER JOIN clienteplanes c
+                                  	ON p.planes_id = c.planes_id
+                                  WHERE c.row_id = '%s';", 
+                                row_selection
+                              ))
+      
+      banana <- c(planes_selected[['nombre_plan']])
       updateTextInput(session, "nombre", value = SQL_df[input$responses_table_rows_selected, "nombre"])
       updateSelectInput(session, "sexo", selected = SQL_df[input$responses_table_rows_selected, "sexo"])
       updateSliderInput(session, "edad", value = SQL_df[input$responses_table_rows_selected, "edad"])
       updateTextInput(session, "millas", value = SQL_df[input$responses_table_rows_selected, "millas"])
       updateTextInput(session, "cedula", value = SQL_df[input$responses_table_rows_selected, "cedula"])
       updateTextInput(session, "email", value = SQL_df[input$responses_table_rows_selected, "email"])
+      updateCheckboxGroupInput(session, "planes", 'Planes', SQL_planes[,"nombre_plan"], inline = TRUE, selected = banana)
       updateTextAreaInput(session, "comentario", value = SQL_df[input$responses_table_rows_selected, "comentario"])
       
     }
@@ -557,7 +576,25 @@ server <- function(input, output, session) {
   observeEvent(input$submit_edit, priority = 20, {
     
     SQL_df <- dbReadTable(db, "responses_df")
-    row_selection <- SQL_df[input$responses_table_row_last_clicked, "row_id"] 
+    row_selection <- SQL_df[input$responses_table_row_last_clicked, "row_id"]
+    
+    dbExecute(db, sprintf("DELETE FROM clientePlanes
+                           WHERE row_id = '%s';", row_selection))
+    
+    sapply(input$planes, function(p){
+      if(!is.null(p)){
+        planes_id <- dbGetQuery(db, 
+                                sprintf(
+                                  "SELECT planes_id FROM planes 
+                                     WHERE nombre_plan = '%s';", p
+                                ))
+        
+        dbExecute(db, sprintf("INSERT INTO
+                                  clientePlanes (row_id, planes_id)
+                                VALUES ('%s', '%s');", row_selection, planes_id)) 
+      }
+    })
+    
     dbExecute(db, sprintf("UPDATE responses_df SET nombre = $1, sexo = $2, 
                           edad = $3, millas = $4, cedula = $5, email = $6,
                           comentario = $7 WHERE row_id = '%s'", row_selection), 
@@ -596,7 +633,7 @@ server <- function(input, output, session) {
   
   #________Displaying the Data Table_____________
   output$responses_table <- DT::renderDataTable({
-    table <- responses_df() %>% select(-row_id) 
+    table <- responses_df() %>% select(-c(row_id, beneficiario_id)) 
     names(table) <- c(
       "Nombre", "Sexo", "Edad", "Millas", "Cédula", "Email", "Commentario", "Creado")
     table <- datatable(table, 
