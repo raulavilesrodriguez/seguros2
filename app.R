@@ -17,6 +17,12 @@ library(shinyauthr)
 library(readxl)
 library(writexl)
 library(shinyBS)
+library(here)
+
+source(here::here('./tables_sql/tables_SQL.R'))
+source(here::here('./helpers/mandatoryFilled.R'))
+source(here::here('./clients/entry_form.R'))
+source(here::here('./beneficiaries/entry_formBe.R'))
 
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
@@ -57,126 +63,8 @@ get_sessionids_from_db <- function(conn = db, expiry = cookie_expiry) {
 # dataframe that holds usernames, passwords and other user data
 user_base <- dbReadTable(db, "acceso") |> as_tibble()
 
-
-# create beneficiario table
-result <- try({
-  dbGetQuery(db, 
-             "SELECT * FROM beneficiario_df;")  
-}, silent = TRUE)
-if(inherits(result, 'try-error')){
-  dbGetQuery(db, 
-             "CREATE TABLE beneficiario_df (
-	beneficiario_id serial PRIMARY KEY,
-	nombre VARCHAR (250) NOT NULL,
-	sexo CHAR(1) CHECK (sexo IN ('M', 'F')),
-	edad INT,
-	millasRecibidas INT,
-	millasCanjeadas INT,
-	millasNetas INT GENERATED ALWAYS AS (millasRecibidas - millasCanjeadas) STORED,
-	cedula VARCHAR (255) UNIQUE NOT NULL,
-	email VARCHAR (255) NOT NULL,
-	cambiado TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-);")
-}
-
-
-# create the dataframe to 'titular' database. 
-responses_df <- data.frame(row_id = character(),
-                          nombre = character(),
-                          sexo = character(),
-                          edad = as.numeric(character()),
-                          millas = as.numeric(character()),
-                          cedula = character(),
-                          email = character(),
-                          comentario = character(),
-                          creado = as.Date(character()),
-                          beneficiario_id = as.integer(character()),
-                          stringsAsFactors = FALSE
-                          )
-
-# Create responses tabl in PostegreSQL
-dbWriteTable(db, 
-             "responses_df",
-             responses_df,
-             overwrite = FALSE,
-             append = TRUE,
-             )
-
-# Check if 'row_id' is already a primary key
-existing_primary_key_query  <- dbGetQuery(db, 
-                            
-                    "SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name = 'responses_df'
-AND column_name = 'row_id'
-AND column_name IN (
-    SELECT column_name
-    FROM information_schema.table_constraints
-    JOIN information_schema.key_column_usage USING (constraint_catalog, constraint_schema, constraint_name, table_catalog, table_schema, table_name)
-    WHERE constraint_type = 'PRIMARY KEY'
-    AND table_name = 'responses_df'
-);")
-
-
-if (nrow(existing_primary_key_query) == 0) {
-  # 'row_id' is not a primary key, so set it as one
-  dbExecute(db, "ALTER TABLE responses_df ADD PRIMARY KEY (row_id);")
-}
-
-# Check if 'cedula' is already a unique key
-existing_unique_key_query <- dbGetQuery(db,
-                "SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name = 'responses_df'
-AND column_name = 'cedula'
-AND column_name IN (
-    SELECT column_name
-    FROM information_schema.table_constraints
-    JOIN information_schema.key_column_usage USING (constraint_catalog, constraint_schema, constraint_name, table_catalog, table_schema, table_name)
-    WHERE constraint_type = 'UNIQUE'
-    AND table_name = 'responses_df'
-);")
-
-if (nrow(existing_unique_key_query) == 0) {
-  # 'cedula' is not a unique key, so set it as one
-  dbExecute(db, "ALTER TABLE responses_df ADD CONSTRAINT unique_cedula UNIQUE (cedula);")
-}
-
-
-# Run the SQL query to add a foreign key constraint in responses_df
-try({
-  dbExecute(db, 
-            "ALTER TABLE responses_df
-          ADD CONSTRAINT fk_beneficiario
-          FOREIGN KEY (beneficiario_id)
-          REFERENCES beneficiario_df(beneficiario_id);"
-  )
-}, silent = TRUE)
-
-# Create Planes table
-try({
-  dbExecute(db,
-            "CREATE TABLE planes(
-	planes_id serial PRIMARY KEY,
-	nombre_plan VARCHAR NOT NULL
-);"
-  )
-}, silent = TRUE)
-
-# Create Cliente-Planes table
-try({
-  dbExecute(db,
-            "CREATE TABLE clientePlanes(
-	row_id VARCHAR NOT NULL,
-	planes_id INT NOT NULL,
-	PRIMARY KEY (row_id, planes_id),
-	FOREIGN KEY (row_id)
-		REFERENCES responses_df (row_id),
-	FOREIGN KEY (planes_id)
-		REFERENCES planes (planes_id)
-);"
-  )
-}, silent = TRUE)
+# --------CREATE tables in PostgreSQL-------
+responses_df <- tables_SQL(db)
 
 
 
@@ -220,8 +108,8 @@ ui <- dashboardPage(title = "Millas App",
     collapsed = TRUE,
     div(icon("circle-user"), HTML("&nbsp;"), textOutput("welcome"), style = "display: flex; align-items: center; padding: 20px"),
     sidebarMenu(
-      menuItem("Dasboard", tabName = "dashboard", icon = icon("dashboard")),
-      menuItem("Widgets", tabName = "widgets", icon = icon("th"))
+      menuItem("Clientes", tabName = "Clientes", icon = icon("dashboard")),
+      menuItem("Beneficiarios", tabName = "Beneficiarios", icon = icon("th"))
     )
   ),
   dashboardBody(
@@ -265,11 +153,11 @@ ui <- dashboardPage(title = "Millas App",
     shinyjs::inlineCSS(appCSS),
     tags$div(id = "tabs",
       tabItems(
-        tabItem(tabName = "dashboard",
+        tabItem(tabName = "Clientes",
                 fluidRow(
-                  actionButton("add_button", "Add", icon("plus")),
-                  actionButton("edit_button", "Edit", icon("edit")),
-                  actionButton("delete_button", "Delete", icon("trash-alt")),
+                  actionButton("add_button", "Añadir", icon("plus")),
+                  actionButton("edit_button", "Editar", icon("edit")),
+                  actionButton("delete_button", "Eliminar", icon("trash-alt")),
                   
                 ),
                 fluidRow(
@@ -280,8 +168,12 @@ ui <- dashboardPage(title = "Millas App",
                          DT::dataTableOutput("responses_table")
                 )
         ),
-        tabItem(tabName = "widgets"
-                
+        tabItem(tabName = "Beneficiarios",
+                fluidRow(
+                  actionButton("add_beneficiario", "Añadir", icon("plus")),
+                  actionButton("edit_beneficiario", "Editar", icon("edit")),
+                  actionButton("delete_beneficiario", "Eliminar", icon("trash-alt")),
+                ),
                 
         )
       )
@@ -346,57 +238,15 @@ server <- function(input, output, session) {
     dbReadTable(db, "responses_df")
   })
   
-  # Enter the name of the fields that should be manditory to fill out
-  fieldsMandatory <- c("nombre", "sexo", "edad", "millas", "cedula", "email")
+  # Enter the name of the fields that should be mandatory to fill out
+  fieldsMandatoryClient <- c("nombre", "sexo", "edad", "millas", "cedula", "email", "planes")
   
   # Function to observe if all mandatory fields are filled out. 
   #If TRUE the submit button will become activated
-  observe({
-    
-    mandatoryFilled <-
-      vapply(fieldsMandatory,
-             function(x) {
-               !is.null(input[[x]]) && input[[x]] != ""
-             },
-             logical(1))
-    mandatoryFilled <- all(mandatoryFilled)
-    
-    shinyjs::toggleState(id = "submit", 
-                         condition = mandatoryFilled)
-  })
+  mandatoryFilled("submit", fieldsMandatoryClient, input)
+  mandatoryFilled("submit_edit", fieldsMandatoryClient, input)
   
   
-  #______Entry form__________
-  entry_form <- function(button_id){
-    SQL_planes <- dbReadTable(db, "planes")
-    showModal(
-      modalDialog(
-        div(id=("entry_form"),
-            tags$head(tags$style(".modal-dialog{ width:400px}")), #Modify the width of the dialog
-            tags$head(tags$style(HTML(".shiny-split-layout > div {overflow: visible}"))), #Necessary to show the input options
-            fluidPage(
-              fluidRow(
-                splitLayout(
-                  cellWidths = c("250px", "100px"),
-                  cellArgs = list(style = "vertical-align: top"),
-                  textInput("nombre", labelMandatory("Nombre"), placeholder = ""),
-                  selectInput("sexo", labelMandatory("Sexo"), multiple = FALSE, choices = c("", "M", "F"))
-                ),
-                sliderInput("edad", labelMandatory("Edad"), 0, 100, 1, ticks = TRUE, width = "354px"),
-                textInput("millas", labelMandatory("Millas"), placeholder = ""),
-                textInput("cedula", labelMandatory("Cédula"), placeholder = ""),
-                textInput("email", labelMandatory("Email"), placeholder = ""),
-                checkboxGroupInput('planes', 'Planes', SQL_planes[,"nombre_plan"], inline = TRUE),
-                textAreaInput("comentario", "Comentario", placeholder = "", height = 100, width = "354px"),
-                helpText(labelMandatory(""), paste("Campo Obligatorio")),
-                actionButton(button_id, "Submit")
-              ),
-              easyClose = TRUE
-            )
-        )
-      )
-    )
-  }
   
   #____Add Data_____
   # Function to save the data into df format
@@ -444,11 +294,12 @@ server <- function(input, output, session) {
     
   
   # When add button is clicked it will activate the entry_form with an 
-  #action button called submit
+  #action button called submit CLIENT
   observeEvent(input$add_button, priority = 20,{
-    entry_form("submit")
+    entry_form("submit", db, labelMandatory)
     
   })
+  
   
   # reset and the modal is removed
   observeEvent(input$submit, priority = 20,{
@@ -468,7 +319,22 @@ server <- function(input, output, session) {
     }
   })
   
-  #___Delete Data____
+  
+  # ----To update data in Beneficiaries Modal---
+  observeEvent(input$cliente, priority = 20, {
+    if(input$cliente !=""){
+      valmax <- dbGetQuery(db, sprintf("SELECT millas FROM responses_df WHERE nombre = '%s';", input$cliente))
+      print(valmax[1,1])
+      updateSliderInput(session, "millasRecibidas", value = 0, min = 0, max = as.numeric(valmax[1,1]))
+    }
+  })
+  
+  
+  observeEvent(input$add_beneficiario, priority = 20, {
+    entry_formBe("submitBe", db, labelMandatory)
+  })
+  
+  #___Delete Data CLIENT____
   row_selection <- reactiveValues(
     # This will return an empty data frame
     rows = data.frame()
@@ -541,7 +407,7 @@ server <- function(input, output, session) {
     
     if(length(input$responses_table_rows_selected) == 1 ){
       
-      entry_form("submit_edit")
+      entry_form("submit_edit", db, labelMandatory)
       
       # to select planes of an client
       row_selection <- SQL_df[input$responses_table_rows_selected, "row_id"]
@@ -562,7 +428,7 @@ server <- function(input, output, session) {
       updateTextInput(session, "nombre", value = SQL_df[input$responses_table_rows_selected, "nombre"])
       updateSelectInput(session, "sexo", selected = SQL_df[input$responses_table_rows_selected, "sexo"])
       updateSliderInput(session, "edad", value = SQL_df[input$responses_table_rows_selected, "edad"])
-      updateTextInput(session, "millas", value = SQL_df[input$responses_table_rows_selected, "millas"])
+      updateNumericInput(session, "millas", value = SQL_df[input$responses_table_rows_selected, "millas"])
       updateTextInput(session, "cedula", value = SQL_df[input$responses_table_rows_selected, "cedula"])
       updateTextInput(session, "email", value = SQL_df[input$responses_table_rows_selected, "email"])
       updateCheckboxGroupInput(session, "planes", 'Planes', SQL_planes[,"nombre_plan"], inline = TRUE, selected = banana)
@@ -578,34 +444,50 @@ server <- function(input, output, session) {
     SQL_df <- dbReadTable(db, "responses_df")
     row_selection <- SQL_df[input$responses_table_row_last_clicked, "row_id"]
     
-    dbExecute(db, sprintf("DELETE FROM clientePlanes
-                           WHERE row_id = '%s';", row_selection))
     
-    sapply(input$planes, function(p){
-      if(!is.null(p)){
-        planes_id <- dbGetQuery(db, 
-                                sprintf(
-                                  "SELECT planes_id FROM planes 
+    consulting <- glue("SELECT * FROM responses_df
+                        WHERE cedula = '{input$cedula}' AND
+                        nombre != '{input$nombre}';")
+    cedula_unica <- dbGetQuery(db, consulting)
+    print(nrow(cedula_unica))
+    if(nrow(cedula_unica) == 0){
+      # CHANGE IN IF to not duplicate the planes chosen
+      dbExecute(db, sprintf("DELETE FROM clientePlanes
+                           WHERE row_id = '%s';", row_selection))
+      
+      sapply(input$planes, function(p){
+        if(!is.null(p)){
+          planes_id <- dbGetQuery(db, 
+                                  sprintf(
+                                    "SELECT planes_id FROM planes 
                                      WHERE nombre_plan = '%s';", p
-                                ))
-        
-        dbExecute(db, sprintf("INSERT INTO
+                                  ))
+          
+          dbExecute(db, sprintf("INSERT INTO
                                   clientePlanes (row_id, planes_id)
                                 VALUES ('%s', '%s');", row_selection, planes_id)) 
-      }
-    })
-    
-    dbExecute(db, sprintf("UPDATE responses_df SET nombre = $1, sexo = $2, 
+        }
+      })
+      
+      dbExecute(db, sprintf("UPDATE responses_df SET nombre = $1, sexo = $2, 
                           edad = $3, millas = $4, cedula = $5, email = $6,
                           comentario = $7 WHERE row_id = '%s'", row_selection), 
-              param = list(input$nombre,
-                           input$sexo,
-                           input$edad,
-                           input$millas,
-                           input$cedula,
-                           input$email,
-                           input$comentario))
-    removeModal()
+                param = list(input$nombre,
+                             input$sexo,
+                             input$edad,
+                             input$millas,
+                             input$cedula,
+                             input$email,
+                             input$comentario))
+      removeModal()
+    } else {
+       showModal(
+         modalDialog(
+           title = "Advertencia. Cambios no grabados",
+           paste("No pueden haber 2 clientes con la misma cédula" ),easyClose = TRUE
+         )
+       )
+    }
     
   })
   
