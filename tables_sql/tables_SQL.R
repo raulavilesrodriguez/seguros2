@@ -7,13 +7,14 @@ tables_SQL <- function(db){
   if(inherits(result, 'try-error')){
     dbGetQuery(db, 
                "CREATE TABLE beneficiario_df (
-	                beneficiario_id serial PRIMARY KEY,
+	                beneficiario_id VARCHAR PRIMARY KEY,
 	                nombre VARCHAR (250) NOT NULL,
 	                sexo CHAR(1) CHECK (sexo IN ('M', 'F')),
 	                edad INT,
-	                millasRecibidas INT,
+	                millasrecibidas INT,
 	                cedula VARCHAR (255) UNIQUE NOT NULL,
 	                email VARCHAR (255) NOT NULL,
+	                estado VARCHAR CHECK (estado IN ('ACTIVO', 'INACTIVO')),
 	                cambiado TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
                 );")
   }
@@ -24,12 +25,12 @@ tables_SQL <- function(db){
                              nombre = character(),
                              sexo = character(),
                              edad = as.numeric(character()),
-                             millas = as.numeric(character()),
+                             millas = numeric(),
                              cedula = character(),
                              email = character(),
                              comentario = character(),
                              creado = as.Date(character()),
-                             beneficiario_id = as.integer(character()),
+                             beneficiario_id = character(),
                              stringsAsFactors = FALSE
   )
   

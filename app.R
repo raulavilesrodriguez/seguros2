@@ -18,11 +18,16 @@ library(readxl)
 library(writexl)
 library(shinyBS)
 library(here)
+library(stringr) # to regex
 
 source(here::here('./tables_sql/tables_SQL.R'))
 source(here::here('./helpers/mandatoryFilled.R'))
+source(here::here('./helpers/changeUpper.R'))
 source(here::here('./clients/entry_form.R'))
+source(here::here('./clients/appendData.R'))
+source(here::here('./clients/appendEdit.R'))
 source(here::here('./beneficiaries/entry_formBe.R'))
+source(here::here('./beneficiaries/appendDataBe.R'))
 
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
@@ -251,9 +256,11 @@ server <- function(input, output, session) {
   #____Add Data_____
   # Function to save the data into df format
   formData <- reactive({
+    # Change to UPPER the name variable and eliminate Spaces
+    newName <- changeUpper(input$nombre)
     
     formData <- data.frame(row_id = UUIDgenerate(),
-                           nombre = input$nombre,
+                           nombre = newName,
                            sexo = input$sexo,
                            edad = input$edad,
                            millas = input$millas,
@@ -265,33 +272,6 @@ server <- function(input, output, session) {
     return(formData)
   })
   
-  # Function to append data to the SQL table
-  appendData <- function(data){
-    consulting <- glue("SELECT * FROM responses_df
-                        WHERE cedula = '{input$cedula}';")
-    cedula_unica <- dbGetQuery(db, consulting)
-    quary <- 1
-    if(nrow(cedula_unica) == 0){
-       dbWriteTable(db, "responses_df", data, append = TRUE)
-       sapply(input$planes, function(p){
-         if(!is.null(p)){
-           planes_id <- dbGetQuery(db, 
-                                   sprintf(
-                                     "SELECT planes_id FROM planes 
-                                     WHERE nombre_plan = '%s';", p
-                                   ))
-           
-           dbExecute(db, sprintf("INSERT INTO
-                                  clientePlanes (row_id, planes_id)
-                                VALUES ('%s', '%s');", data[['row_id']], planes_id)) 
-         }
-       })      
-       quary <- 0
-       quary
-    }
-    quary
-    }
-    
   
   # When add button is clicked it will activate the entry_form with an 
   #action button called submit CLIENT
@@ -304,12 +284,12 @@ server <- function(input, output, session) {
   # reset and the modal is removed
   observeEvent(input$submit, priority = 20,{
     
-    quary <- appendData(formData())
+    quary <- appendData(formData(), db, input)
     showModal(
       if(quary == 1){
         modalDialog(
           title = "Advertencia",
-          paste("No pueden haber 2 clientes con la misma cédula" ),easyClose = TRUE
+          paste("No pueden haber 2 clientes con el mismo nombre o la misma cédula" ),easyClose = TRUE
         ) 
       }
     )
@@ -320,18 +300,50 @@ server <- function(input, output, session) {
   })
   
   
+  #________ADD Data BENEFICIARIES________
+  formDataBe <- reactive({
+    
+    formDataBe <- data.frame(beneficiario_id = UUIDgenerate(),
+                           nombre = input$nombreBe,
+                           sexo = input$sexoBe,
+                           edad = input$edadBe,
+                           millasrecibidas = input$millasrecibidas,
+                           cedula = input$cedulaBe,
+                           email = input$emailBe,
+                           estado = input$estadoBe,
+                           stringsAsFactors = FALSE)
+    return(formDataBe)
+  })
+  
   # ----To update data in Beneficiaries Modal---
   observeEvent(input$cliente, priority = 20, {
     if(input$cliente !=""){
       valmax <- dbGetQuery(db, sprintf("SELECT millas FROM responses_df WHERE nombre = '%s';", input$cliente))
       print(valmax[1,1])
-      updateSliderInput(session, "millasRecibidas", value = 0, min = 0, max = as.numeric(valmax[1,1]))
+      updateSliderInput(session, "millasrecibidas", value = 0, min = 0, max = as.numeric(valmax[1,1]))
     }
   })
   
   
   observeEvent(input$add_beneficiario, priority = 20, {
     entry_formBe("submitBe", db, labelMandatory)
+  })
+  
+  observeEvent(input$submitBe, priority = 20, {
+    quary <- appendDataBe(formDataBe(), db, input)
+    showModal(
+      if(quary == 1){
+        modalDialog(
+          title = "Advertencia",
+          paste("No pueden haber 2 Beneficiarios con la misma cédula" ),easyClose = TRUE
+        ) 
+      }
+    )
+    if(quary == 0){
+      shinyjs::reset("entry_formBe")
+      removeModal() 
+    }
+    
   })
   
   #___Delete Data CLIENT____
@@ -425,6 +437,7 @@ server <- function(input, output, session) {
                               ))
       
       banana <- c(planes_selected[['nombre_plan']])
+      
       updateTextInput(session, "nombre", value = SQL_df[input$responses_table_rows_selected, "nombre"])
       updateSelectInput(session, "sexo", selected = SQL_df[input$responses_table_rows_selected, "sexo"])
       updateSliderInput(session, "edad", value = SQL_df[input$responses_table_rows_selected, "edad"])
@@ -440,55 +453,7 @@ server <- function(input, output, session) {
   
   # Update the selected row with the values that were entered in the form
   observeEvent(input$submit_edit, priority = 20, {
-    
-    SQL_df <- dbReadTable(db, "responses_df")
-    row_selection <- SQL_df[input$responses_table_row_last_clicked, "row_id"]
-    
-    
-    consulting <- glue("SELECT * FROM responses_df
-                        WHERE cedula = '{input$cedula}' AND
-                        nombre != '{input$nombre}';")
-    cedula_unica <- dbGetQuery(db, consulting)
-    print(nrow(cedula_unica))
-    if(nrow(cedula_unica) == 0){
-      # CHANGE IN IF to not duplicate the planes chosen
-      dbExecute(db, sprintf("DELETE FROM clientePlanes
-                           WHERE row_id = '%s';", row_selection))
-      
-      sapply(input$planes, function(p){
-        if(!is.null(p)){
-          planes_id <- dbGetQuery(db, 
-                                  sprintf(
-                                    "SELECT planes_id FROM planes 
-                                     WHERE nombre_plan = '%s';", p
-                                  ))
-          
-          dbExecute(db, sprintf("INSERT INTO
-                                  clientePlanes (row_id, planes_id)
-                                VALUES ('%s', '%s');", row_selection, planes_id)) 
-        }
-      })
-      
-      dbExecute(db, sprintf("UPDATE responses_df SET nombre = $1, sexo = $2, 
-                          edad = $3, millas = $4, cedula = $5, email = $6,
-                          comentario = $7 WHERE row_id = '%s'", row_selection), 
-                param = list(input$nombre,
-                             input$sexo,
-                             input$edad,
-                             input$millas,
-                             input$cedula,
-                             input$email,
-                             input$comentario))
-      removeModal()
-    } else {
-       showModal(
-         modalDialog(
-           title = "Advertencia. Cambios no grabados",
-           paste("No pueden haber 2 clientes con la misma cédula" ),easyClose = TRUE
-         )
-       )
-    }
-    
+    appendEdit(db, input)
   })
   
   #____Download button_____

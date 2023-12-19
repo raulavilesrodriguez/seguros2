@@ -16,12 +16,12 @@ entry_formBe <- function(button_id, db, labelMandatory){
               ),
               sliderInput("edadBe", labelMandatory("Edad"), 0, 100, 1, ticks = TRUE, width = "354px"),
               selectInput("cliente", labelMandatory("Cliente"), choices = c("",SQL_clientes[,c("nombre")]), multiple = FALSE),
-              sliderInput("millasRecibidas", labelMandatory("Millas Recibidas"), value = 0, min = 0, max = 100, ticks = TRUE, width = "354px"),
+              sliderInput("millasrecibidas", labelMandatory("Millas Recibidas"), value = 0, min = 0, max = 100, ticks = TRUE, width = "354px"),
               textInput("cedulaBe", labelMandatory("Cédula"), placeholder = ""),
               textInput("emailBe", labelMandatory("Email"), placeholder = ""),
-              textAreaInput("comentario", "Comentario", placeholder = "", height = 100, width = "354px"),
+              selectInput("estadoBe", labelMandatory("Estado"), multiple = FALSE, choices = c("", "ACTIVO", "INACTIVO"), width = "354px"),
               helpText(labelMandatory(""), paste("Campo Obligatorio")),
-              actionButton(button_id, "Submit")
+              actionButton(button_id, "Aceptar")
             ),
             easyClose = TRUE
           )

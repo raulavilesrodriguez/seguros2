@@ -1,10 +1,17 @@
 # Function to append data to the SQL table
 appendData <- function(data, db, input){
-  consulting <- glue("SELECT * FROM responses_df
+  consulting_cedula <- glue("SELECT * FROM responses_df
                         WHERE cedula = '{input$cedula}';")
-  cedula_unica <- dbGetQuery(db, consulting)
+  cedula_unica <- dbGetQuery(db, consulting_cedula)
+  
+  nombre_unico <- dbGetQuery(db, 
+                              sprintf(
+                                  "SELECT * FROM responses_df
+                                   WHERE nombre = '%s';", data[['nombre']] 
+                              ))
+  
   quary <- 1
-  if(nrow(cedula_unica) == 0){
+  if(nrow(cedula_unica) == 0 & nrow(nombre_unico) == 0){
     dbWriteTable(db, "responses_df", data, append = TRUE)
     sapply(input$planes, function(p){
       if(!is.null(p)){
