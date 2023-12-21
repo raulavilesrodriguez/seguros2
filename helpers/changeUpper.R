@@ -7,5 +7,7 @@ changeUpper <- function(data){
     }
   }
   
-  str_squish(result)
+  result <- str_squish(result)
+  result <- stri_trans_general(result, "Latin-ASCII")
+  result
 }

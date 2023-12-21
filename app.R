@@ -19,6 +19,7 @@ library(writexl)
 library(shinyBS)
 library(here)
 library(stringr) # to regex
+library(stringi) # to remove accents
 
 source(here::here('./tables_sql/tables_SQL.R'))
 source(here::here('./helpers/mandatoryFilled.R'))
@@ -26,6 +27,8 @@ source(here::here('./helpers/changeUpper.R'))
 source(here::here('./clients/entry_form.R'))
 source(here::here('./clients/appendData.R'))
 source(here::here('./clients/appendEdit.R'))
+source(here::here('./clients/updateDataEdit.R'))
+source(here::here('./clients/deleteDataClient.R'))
 source(here::here('./beneficiaries/entry_formBe.R'))
 source(here::here('./beneficiaries/appendDataBe.R'))
 
@@ -92,7 +95,7 @@ tableDownloadbutton <- function(outputId, label = NULL){
 
 #--------Shiny APP---------
 ##### UI######
-ui <- dashboardPage(title = "Millas App",
+ui <- dashboardPage(title = "Millas App", skin= "purple",
   dashboardHeader(
     title = "Millas app",
     tags$li(
@@ -118,8 +121,8 @@ ui <- dashboardPage(title = "Millas App",
     )
   ),
   dashboardBody(
+    includeCSS("www/custom.css"),
     tags$head(
-      tags$link(rel = "stylesheet", type = "text/css", href = "stylesheet.css"),
       tags$style(
         HTML("
       @media only screen and (max-width: 600px) {
@@ -149,6 +152,7 @@ ui <- dashboardPage(title = "Millas App",
                     }
                     
                     ")),
+    
     shinyauthr::loginUI(
       id = "login", 
       cookie_expiry = cookie_expiry,
@@ -177,8 +181,15 @@ ui <- dashboardPage(title = "Millas App",
                 fluidRow(
                   actionButton("add_beneficiario", "Añadir", icon("plus")),
                   actionButton("edit_beneficiario", "Editar", icon("edit")),
-                  actionButton("delete_beneficiario", "Eliminar", icon("trash-alt")),
+                  #actionButton("delete_beneficiario", "Eliminar", icon("trash-alt")),
                 ),
+                fluidRow(
+                  uiOutput("downloadBe"),
+                ),
+                br(),
+                fluidRow(width="100%",
+                         DT::dataTableOutput("table_beneficiaries")
+                )
                 
         )
       )
@@ -232,7 +243,7 @@ server <- function(input, output, session) {
     glue("Bienvenido {user_info()$name}")
   })
   
-  # Enter the inputs to make the df reactive to any input changes.
+  # Enter the inputs to make the df CLIENTS reactive to any input changes.
   responses_df <- reactive({
     
     input$submit
@@ -242,6 +253,16 @@ server <- function(input, output, session) {
     
     dbReadTable(db, "responses_df")
   })
+  
+  # Enter the inputs to make the df BENEFICIARIES reactive to any input changes.
+  beneficiario_df <- reactive({
+    input$submitBe
+    input$submit_editBe
+    
+    dbReadTable(db, "beneficiario_df")
+  })
+  
+  
   
   # Enter the name of the fields that should be mandatory to fill out
   fieldsMandatoryClient <- c("nombre", "sexo", "edad", "millas", "cedula", "email", "planes")
@@ -347,108 +368,11 @@ server <- function(input, output, session) {
   })
   
   #___Delete Data CLIENT____
-  row_selection <- reactiveValues(
-    # This will return an empty data frame
-    rows = data.frame()
-  )
-  
-  deleteData <- reactive({
-    quary <- lapply(row_selection$rows, function(nr){
-      dbExecute(db, sprintf("DELETE FROM clientePlanes WHERE row_id = '%s';", nr))
-      dbExecute(db, sprintf("DELETE FROM responses_df WHERE row_id = '%s'", nr))
-    })
-  })
-  
-  # Delete rows when selected. Otherwise display error message
-  observeEvent(input$delete_button, priority = 20,{
-    
-    if(length(input$responses_table_rows_selected)>=1 ){
-      SQL_df <- dbReadTable(db, "responses_df")
-      row_selection$rows <- SQL_df[input$responses_table_rows_selected, "row_id"]
-      showModal(
-        modalDialog(id="delete_modal",
-                    title = "Advertencia",
-                    paste("Estás seguro de borrar el/los cliente(s)?"),
-                    br(),
-                    br(),
-                    actionButton("yes_button", "Si"),
-                    actionButton("no_button", "No"),
-                    easyClose = TRUE, footer = NULL))
-      
-    }
-    
-    else if(length(input$responses_table_rows_selected) < 1 ){
-      showModal(
-        modalDialog(
-          title = "Advertencia",
-          paste("Por favor selecciona el/los cliente(s)" ),easyClose = TRUE
-        ) 
-      )
-    }
-    
-  })
-  
-  observeEvent(input$yes_button, priority = 20,{
-    
-    deleteData()
-    removeModal()
-    
-  })
-  
-  observeEvent(input$no_button, priority = 20,{
-    removeModal()
-    
-  })
+  deleteDataClient(db, input)
   
   # ___________Edit DATA CLIENT_______________
   observeEvent(input$edit_button, priority = 20,{
-    
-    SQL_df <- dbReadTable(db, "responses_df")
-    
-    
-    showModal(
-      if(length(input$responses_table_rows_selected) > 1 ){
-        modalDialog(
-          title = "Advertencia",
-          paste("Por favor selecciona solo un cliente" ),easyClose = TRUE)
-      } else if(length(input$responses_table_rows_selected) < 1){
-        modalDialog(
-          title = "Advertencia",
-          paste("Por favor selecciona un cliente" ),easyClose = TRUE)
-      })  
-    
-    if(length(input$responses_table_rows_selected) == 1 ){
-      
-      entry_form("submit_edit", db, labelMandatory)
-      
-      # to select planes of an client
-      row_selection <- SQL_df[input$responses_table_rows_selected, "row_id"]
-      SQL_planes <- dbReadTable(db, "planes")
-      planes_selected <- dbGetQuery(db, 
-                              sprintf(
-                                "SELECT 
-                                  	p.nombre_plan
-                                  FROM 
-                                  	planes p
-                                  INNER JOIN clienteplanes c
-                                  	ON p.planes_id = c.planes_id
-                                  WHERE c.row_id = '%s';", 
-                                row_selection
-                              ))
-      
-      banana <- c(planes_selected[['nombre_plan']])
-      
-      updateTextInput(session, "nombre", value = SQL_df[input$responses_table_rows_selected, "nombre"])
-      updateSelectInput(session, "sexo", selected = SQL_df[input$responses_table_rows_selected, "sexo"])
-      updateSliderInput(session, "edad", value = SQL_df[input$responses_table_rows_selected, "edad"])
-      updateNumericInput(session, "millas", value = SQL_df[input$responses_table_rows_selected, "millas"])
-      updateTextInput(session, "cedula", value = SQL_df[input$responses_table_rows_selected, "cedula"])
-      updateTextInput(session, "email", value = SQL_df[input$responses_table_rows_selected, "email"])
-      updateCheckboxGroupInput(session, "planes", 'Planes', SQL_planes[,"nombre_plan"], inline = TRUE, selected = banana)
-      updateTextAreaInput(session, "comentario", value = SQL_df[input$responses_table_rows_selected, "comentario"])
-      
-    }
-    
+    updateDataEdit(db, input, session, labelMandatory)
   })
   
   # Update the selected row with the values that were entered in the form
@@ -478,7 +402,7 @@ server <- function(input, output, session) {
   
   
   
-  #________Displaying the Data Table_____________
+  #________Displaying the Data Table CLIENTS_____________
   output$responses_table <- DT::renderDataTable({
     table <- responses_df() %>% select(-c(row_id, beneficiario_id)) 
     names(table) <- c(
@@ -497,6 +421,31 @@ server <- function(input, output, session) {
                          )
     )
   })
+  
+  #________Displaying the Data Table BENEFICIARIES_____________
+  output$table_beneficiaries <- DT::renderDataTable({
+    table <- beneficiario_df() |> select(-c(beneficiario_id))
+    names(table) <- c(
+      "Nombre", "Sexo", "Edad", "Millas Recibidas", "Cédula", "Email", "Estado", "Cambiado"
+    )
+    table <- datatable(table,
+                       rownames = FALSE,
+                       options = list(
+                         searching = TRUE, 
+                         lengthChange = TRUE,
+                         bSortClasses = TRUE,iDisplayLength = 10,   width = "100%",
+                         scrollX=TRUE,
+                         autoWidth = TRUE,
+                         columnDefs = list(
+                           list(width = '100px', targets = "_all") # Adjust the width as needed
+                         )
+                       ))
+    
+  })
+  
+  
+  
+  
 }
 
 shinyApp(ui = ui, server = server)

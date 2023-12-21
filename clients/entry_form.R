@@ -15,8 +15,8 @@ entry_form <- function(button_id, db, labelMandatory){
                 selectInput("sexo", labelMandatory("Sexo"), multiple = FALSE, choices = c("", "M", "F"))
               ),
               sliderInput("edad", labelMandatory("Edad"), 0, 100, 1, ticks = TRUE, width = "354px"),
-              numericInput("millas", labelMandatory("Millas"), value = 0, min = 0),
-              textInput("cedula", labelMandatory("Cédula"), placeholder = ""),
+              numericInput("millas", labelMandatory("Millas"), value = "", min = 0),
+              numericInput("cedula", labelMandatory("Cédula"), value = "", min = 0, max = 9999999999),
               textInput("email", labelMandatory("Email"), placeholder = ""),
               checkboxGroupInput("planes", labelMandatory('Planes'), SQL_planes[,"nombre_plan"], selected = NULL, inline = TRUE),
               textAreaInput("comentario", "Comentario", placeholder = "", height = 100, width = "354px"),
