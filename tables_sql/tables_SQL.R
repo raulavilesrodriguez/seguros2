@@ -11,7 +11,7 @@ tables_SQL <- function(db){
 	                nombre VARCHAR (250) NOT NULL,
 	                sexo CHAR(1) CHECK (sexo IN ('M', 'F')),
 	                edad INT,
-	                millasrecibidas INT,
+	                millasrecibidas INT DEFAULT 0,
 	                cedula VARCHAR (255) UNIQUE NOT NULL,
 	                email VARCHAR (255) NOT NULL,
 	                estado VARCHAR CHECK (estado IN ('ACTIVO', 'INACTIVO')),

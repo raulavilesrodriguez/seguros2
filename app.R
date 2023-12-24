@@ -40,6 +40,7 @@ source(here::here('./beneficiaries/appendEditBe.R'))
 source(here::here('./beneficiaries/deleteDataBeneficiaries.R'))
 
 source(here::here('./miles/formDonate.R'))
+source(here::here('./miles/appendDonate.R'))
 
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
@@ -149,7 +150,15 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
         }
       }
     ")
-      )
+      ),
+      tags$script(HTML(
+        "$(document).on('shown.bs.modal','#shiny-modal', function () {
+       Shiny.setInputValue(id = 'modal_visible', value = true);
+      });
+     $(document).on('hidden.bs.modal','#shiny-modal', function () {
+       Shiny.setInputValue(id = 'modal_visible', value = false);
+     });"
+      )),
     ),
     tags$style(HTML("
                     .content { padding: 50px; }
@@ -297,6 +306,9 @@ server <- function(input, output, session) {
   fieldsMandatoryBeE <- c("nombreBeE", "sexoBeE", "edadBeE", "cedulaBeE", "emailBeE", "estadoBeE")
   mandatoryFilled("submit_edit_Be", fieldsMandatoryBeE, input)
   
+  fieldsMandatoryDonate <- c("cliente", "beneficiario", "millasrecibidas")
+  mandatoryFilled("submitDonate", fieldsMandatoryDonate, input)
+  
   #____Add Data_____
   # Function to save the data into df format
   formData <- reactive({
@@ -418,6 +430,7 @@ server <- function(input, output, session) {
     formDonate("submitDonate", db, input, labelMandatory)
   })
   
+  # update data of Client cedula and miles in the Form
   observeEvent(input$cliente, priority = 20, {
     if(input$cliente !=""){
       cedulaCliente <- dbGetQuery(db, sprintf("SELECT cedula FROM responses_df WHERE nombre = '%s';", input$cliente))
@@ -430,8 +443,52 @@ server <- function(input, output, session) {
       output$valmax <- renderText({
         paste("Millas Cliente: ", valmax[1,1])
       })
+      updateSliderInput(session, "millasrecibidas", value = as.numeric(valmax[1,1]), min = 0, max = as.numeric(valmax[1,1]))
     }
   })
+  
+  # update data of beneficiarie cedula in the Form
+  observeEvent(input$beneficiario, priority = 20, {
+    if(input$beneficiario != ""){
+      cedulaBeneficiario <- dbGetQuery(db, sprintf("SELECT cedula FROM beneficiario_df WHERE nombre = '%s';", input$beneficiario))
+      print(cedulaBeneficiario[1,1])
+      output$cedulaBeneficiario <- renderText({
+        paste("Cédula Beneficiario: ", cedulaBeneficiario[1,1])
+      })
+      millasBeneficiario <- dbGetQuery(db, sprintf("SELECT millasrecibidas FROM beneficiario_df WHERE nombre = '%s';", input$beneficiario))
+      print(millasBeneficiario[1,1])
+      output$millasBeneficiario <- renderText({
+        paste("Millas Beneficiario: ", millasBeneficiario[1,1])
+      })
+    } 
+  })
+  
+  observeEvent(input$submitDonate, priority = 20, {
+    quaryDonate <- appendDonate(db, input)
+    showModal(
+      if(quaryDonate == 1){
+        modalDialog(
+          title = "Advertencia",
+          paste("Millas insuficientes del Cliente. Acción no ejecutada."),easyClose = TRUE
+        ) 
+      }
+    )
+    if(quaryDonate == 0){
+      shinyjs::reset("formDonate")
+      removeModal() 
+    }
+  })
+  
+  resetOutputs <- function() {
+    output$cedulaCliente <- renderText({ "" })
+    output$valmax <- renderText({ "" })
+    output$cedulaBeneficiario <- renderText({ "" })
+    output$millasBeneficiario <- renderText({ "" })
+  }
+  
+  observeEvent({input$modal_visible == FALSE}, priority = 20,{
+    resetOutputs()
+  }, ignoreInit = TRUE)
   
   #____Download button_____
   # Download function DataBase
