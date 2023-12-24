@@ -1,8 +1,11 @@
 # Function to append data to the SQL table
 appendData <- function(data, db, input){
-  consulting_cedula <- glue("SELECT * FROM responses_df
-                        WHERE cedula = '{input$cedula}';")
-  cedula_unica <- dbGetQuery(db, consulting_cedula)
+  
+  cedula_unica <- dbGetQuery(db, 
+                             sprintf(
+                               "SELECT * FROM responses_df
+                                WHERE cedula = '%s';", data[['cedula']]
+                             ))
   
   nombre_unico <- dbGetQuery(db, 
                               sprintf(

@@ -1,6 +1,6 @@
 #---Entry Form to BENEFICIARY----
 entry_formBe <- function(button_id, db, labelMandatory){
-  SQL_clientes <- dbReadTable(db, "responses_df")
+  
   showModal(
     modalDialog(
       div(id=("entry_form"),
@@ -15,8 +15,7 @@ entry_formBe <- function(button_id, db, labelMandatory){
                 selectInput("sexoBe", labelMandatory("Sexo"), multiple = FALSE, choices = c("", "M", "F"))
               ),
               sliderInput("edadBe", labelMandatory("Edad"), 0, 100, 1, ticks = TRUE, width = "354px"),
-              selectInput("cliente", labelMandatory("Cliente"), choices = c("",SQL_clientes[,c("nombre")]), multiple = FALSE),
-              sliderInput("millasrecibidas", labelMandatory("Millas Recibidas"), value = 0, min = 0, max = 100, ticks = TRUE, width = "354px"),
+              
               textInput("cedulaBe", labelMandatory("Cédula"), placeholder = ""),
               textInput("emailBe", labelMandatory("Email"), placeholder = ""),
               selectInput("estadoBe", labelMandatory("Estado"), multiple = FALSE, choices = c("", "ACTIVO", "INACTIVO"), width = "354px"),

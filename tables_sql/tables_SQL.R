@@ -15,7 +15,7 @@ tables_SQL <- function(db){
 	                cedula VARCHAR (255) UNIQUE NOT NULL,
 	                email VARCHAR (255) NOT NULL,
 	                estado VARCHAR CHECK (estado IN ('ACTIVO', 'INACTIVO')),
-	                cambiado TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+	                creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
                 );")
   }
   
@@ -116,6 +116,24 @@ tables_SQL <- function(db){
                 );"
               )
   }, silent = TRUE)
+  
+  
+  # Create Beneficiario - Cliente table
+  try({
+    dbExecute(db,
+              "CREATE TABLE benefcliente(
+              	beneficiario_id VARCHAR NOT NULL,
+              	row_id VARCHAR NOT NULL,
+              	PRIMARY KEY (beneficiario_id, row_id),
+              	FOREIGN KEY (beneficiario_id)
+              		REFERENCES beneficiario_df (beneficiario_id),
+              	FOREIGN KEY (row_id)
+              		REFERENCES responses_df (row_id),
+              	fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+                );"
+    )
+  }, silent = TRUE)
+  
   
   return(responses_df)
 }

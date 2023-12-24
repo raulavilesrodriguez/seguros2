@@ -22,7 +22,12 @@ result
 
 
 
-
-
+test4 <- "*123456789-0  ú  // {}\\ saPo 1"
+cleaned_test4 <- str_extract_all(test4, regex("[:digit:]"), simplify = TRUE)
+finalCedula <- c()
+for(i in 1: length(cleaned_test4)){
+  finalCedula <- paste0(finalCedula, cleaned_test4[i])
+}
+finalCedula
 
 

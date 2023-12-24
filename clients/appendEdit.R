@@ -4,10 +4,11 @@ appendEdit <- function(db, input){
   
   # Change to UPPER the name variable and eliminate Spaces
   newName <- changeUpper(input$nombre)
+  newCedula <- onlyNumbers(input$cedula)
   
   unica_cedula <- dbGetQuery(db, sprintf("SELECT  row_id FROM  responses_df
                                            WHERE cedula = '%s' AND
-                                           row_id != '%s';", input$cedula, row_selection))
+                                           row_id != '%s';", newCedula, row_selection))
   
   unico_nombre <- dbGetQuery(db, sprintf("SELECT row_id FROM responses_df
                                            WHERE nombre = '%s' AND
@@ -40,7 +41,7 @@ appendEdit <- function(db, input){
                            input$sexo,
                            input$edad,
                            input$millas,
-                           input$cedula,
+                           newCedula,
                            input$email,
                            input$comentario))
     removeModal()

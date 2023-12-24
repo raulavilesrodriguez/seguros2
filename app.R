@@ -24,13 +24,22 @@ library(stringi) # to remove accents
 source(here::here('./tables_sql/tables_SQL.R'))
 source(here::here('./helpers/mandatoryFilled.R'))
 source(here::here('./helpers/changeUpper.R'))
+source(here::here('./helpers/onlyNumbers.R'))
+
 source(here::here('./clients/entry_form.R'))
 source(here::here('./clients/appendData.R'))
 source(here::here('./clients/appendEdit.R'))
 source(here::here('./clients/updateDataEdit.R'))
 source(here::here('./clients/deleteDataClient.R'))
+
 source(here::here('./beneficiaries/entry_formBe.R'))
 source(here::here('./beneficiaries/appendDataBe.R'))
+source(here::here('./beneficiaries/updateBeneficiaries.R'))
+source(here::here('./beneficiaries/edit_formBe.R'))
+source(here::here('./beneficiaries/appendEditBe.R'))
+source(here::here('./beneficiaries/deleteDataBeneficiaries.R'))
+
+source(here::here('./miles/formDonate.R'))
 
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
@@ -116,8 +125,9 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
     collapsed = TRUE,
     div(icon("circle-user"), HTML("&nbsp;"), textOutput("welcome"), style = "display: flex; align-items: center; padding: 20px"),
     sidebarMenu(
-      menuItem("Clientes", tabName = "Clientes", icon = icon("dashboard")),
-      menuItem("Beneficiarios", tabName = "Beneficiarios", icon = icon("th"))
+      menuItem("Clientes", tabName = "Clientes", icon = icon("user")),
+      menuItem("Beneficiarios", tabName = "Beneficiarios", icon = icon("face-smile")),
+      menuItem("Asignación", tabName = "Asignación", icon = icon("wand-magic-sparkles"))
     )
   ),
   dashboardBody(
@@ -181,7 +191,7 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                 fluidRow(
                   actionButton("add_beneficiario", "Añadir", icon("plus")),
                   actionButton("edit_beneficiario", "Editar", icon("edit")),
-                  #actionButton("delete_beneficiario", "Eliminar", icon("trash-alt")),
+                  actionButton("delete_beneficiario", "Eliminar", icon("trash-alt")),
                 ),
                 fluidRow(
                   uiOutput("downloadBe"),
@@ -191,7 +201,14 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                          DT::dataTableOutput("table_beneficiaries")
                 )
                 
-        )
+        ),
+        tabItem(tabName = "Asignación",
+                fluidRow(
+                  actionButton("donate", "Asignar", icon("bolt"))
+                )
+                
+                )
+        
       )
     )
     
@@ -257,14 +274,16 @@ server <- function(input, output, session) {
   # Enter the inputs to make the df BENEFICIARIES reactive to any input changes.
   beneficiario_df <- reactive({
     input$submitBe
-    input$submit_editBe
+    input$submit_edit_Be
+    input$delete_beneficiario
+    input$yes_buttonBe
     
     dbReadTable(db, "beneficiario_df")
   })
   
   
   
-  # Enter the name of the fields that should be mandatory to fill out
+  # Enter the name of the fields that should be mandatory to fill out CLIENTES
   fieldsMandatoryClient <- c("nombre", "sexo", "edad", "millas", "cedula", "email", "planes")
   
   # Function to observe if all mandatory fields are filled out. 
@@ -272,20 +291,25 @@ server <- function(input, output, session) {
   mandatoryFilled("submit", fieldsMandatoryClient, input)
   mandatoryFilled("submit_edit", fieldsMandatoryClient, input)
   
-  
+  # Enter the name of the fields that should be mandatory to fill out BENEFICIARIES
+  fieldsMandatoryBe <- c("nombreBe", "sexoBe", "edadBe", "cedulaBe", "emailBe", "estadoBe")
+  mandatoryFilled("submitBe", fieldsMandatoryBe, input)
+  fieldsMandatoryBeE <- c("nombreBeE", "sexoBeE", "edadBeE", "cedulaBeE", "emailBeE", "estadoBeE")
+  mandatoryFilled("submit_edit_Be", fieldsMandatoryBeE, input)
   
   #____Add Data_____
   # Function to save the data into df format
   formData <- reactive({
     # Change to UPPER the name variable and eliminate Spaces
     newName <- changeUpper(input$nombre)
+    newCedula <- onlyNumbers(input$cedula)
     
     formData <- data.frame(row_id = UUIDgenerate(),
                            nombre = newName,
                            sexo = input$sexo,
                            edad = input$edad,
                            millas = input$millas,
-                           cedula = input$cedula,
+                           cedula = newCedula,
                            email = input$email,
                            comentario = input$comentario,
                            creado = as.character(format(Sys.Date(), format="%Y-%m-%d")),
@@ -324,25 +348,18 @@ server <- function(input, output, session) {
   #________ADD Data BENEFICIARIES________
   formDataBe <- reactive({
     
+    newNameBe <- changeUpper(input$nombreBe)
+    newCedulaBe <- onlyNumbers(input$cedulaBe)
+    
     formDataBe <- data.frame(beneficiario_id = UUIDgenerate(),
-                           nombre = input$nombreBe,
+                           nombre = newNameBe,
                            sexo = input$sexoBe,
                            edad = input$edadBe,
-                           millasrecibidas = input$millasrecibidas,
-                           cedula = input$cedulaBe,
+                           cedula = newCedulaBe,
                            email = input$emailBe,
                            estado = input$estadoBe,
                            stringsAsFactors = FALSE)
     return(formDataBe)
-  })
-  
-  # ----To update data in Beneficiaries Modal---
-  observeEvent(input$cliente, priority = 20, {
-    if(input$cliente !=""){
-      valmax <- dbGetQuery(db, sprintf("SELECT millas FROM responses_df WHERE nombre = '%s';", input$cliente))
-      print(valmax[1,1])
-      updateSliderInput(session, "millasrecibidas", value = 0, min = 0, max = as.numeric(valmax[1,1]))
-    }
   })
   
   
@@ -370,6 +387,10 @@ server <- function(input, output, session) {
   #___Delete Data CLIENT____
   deleteDataClient(db, input)
   
+  #___Delete Data BENEFICIARIES____
+  deleteDataBeneficiaries(db, input)
+  
+  
   # ___________Edit DATA CLIENT_______________
   observeEvent(input$edit_button, priority = 20,{
     updateDataEdit(db, input, session, labelMandatory)
@@ -378,6 +399,38 @@ server <- function(input, output, session) {
   # Update the selected row with the values that were entered in the form
   observeEvent(input$submit_edit, priority = 20, {
     appendEdit(db, input)
+  })
+  
+  
+  #____________Edit DATA BENEFICIARIES__________
+  observeEvent(input$edit_beneficiario, priority = 20, {
+    updateBeneficiaries(db, input, session, labelMandatory)
+  })
+  
+  
+  observeEvent(input$submit_edit_Be, priority = 20, {
+    appendEditBe(db, input)
+  })
+  
+  
+  #__________ASSIGN MILLES FROM CLIENT TO BENEFICIARIES_____________
+  observeEvent(input$donate, priority = 20, {
+    formDonate("submitDonate", db, input, labelMandatory)
+  })
+  
+  observeEvent(input$cliente, priority = 20, {
+    if(input$cliente !=""){
+      cedulaCliente <- dbGetQuery(db, sprintf("SELECT cedula FROM responses_df WHERE nombre = '%s';", input$cliente))
+      print(cedulaCliente[1,1])
+      output$cedulaCliente <- renderText({
+        paste("Cédula Cliente: ", cedulaCliente[1,1])
+      })
+      valmax <- dbGetQuery(db, sprintf("SELECT millas FROM responses_df WHERE nombre = '%s';", input$cliente))
+      print(valmax[1,1])
+      output$valmax <- renderText({
+        paste("Millas Cliente: ", valmax[1,1])
+      })
+    }
   })
   
   #____Download button_____
@@ -426,7 +479,7 @@ server <- function(input, output, session) {
   output$table_beneficiaries <- DT::renderDataTable({
     table <- beneficiario_df() |> select(-c(beneficiario_id))
     names(table) <- c(
-      "Nombre", "Sexo", "Edad", "Millas Recibidas", "Cédula", "Email", "Estado", "Cambiado"
+      "Nombre", "Sexo", "Edad", "Millas Recibidas","Cédula", "Email", "Estado", "Creado"
     )
     table <- datatable(table,
                        rownames = FALSE,

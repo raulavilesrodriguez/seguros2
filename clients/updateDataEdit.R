@@ -38,7 +38,7 @@ updateDataEdit <- function(db, input, session, labelMandatory){
     updateSelectInput(session, "sexo", selected = SQL_df[input$responses_table_rows_selected, "sexo"])
     updateSliderInput(session, "edad", value = SQL_df[input$responses_table_rows_selected, "edad"])
     updateNumericInput(session, "millas", value = SQL_df[input$responses_table_rows_selected, "millas"])
-    updateNumericInput(session, "cedula", value = SQL_df[input$responses_table_rows_selected, "cedula"])
+    updateTextInput(session, "cedula", value = SQL_df[input$responses_table_rows_selected, "cedula"])
     updateTextInput(session, "email", value = SQL_df[input$responses_table_rows_selected, "email"])
     updateCheckboxGroupInput(session, "planes", 'Planes', SQL_planes[,"nombre_plan"], inline = TRUE, selected = banana)
     updateTextAreaInput(session, "comentario", value = SQL_df[input$responses_table_rows_selected, "comentario"])
