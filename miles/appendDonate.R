@@ -10,7 +10,7 @@ appendDonate <- function(db, input){
                                      FROM beneficiario_df 
                                     WHERE nombre = '%s';", input$beneficiario))
   
-  millasBeneficiario <- ifelse(is.null(millasBeneficiario), 0 , millasBeneficiario)
+  millasBeneficiario <- ifelse(is.na(millasBeneficiario), 0 , millasBeneficiario)
   
   # the values to setup benefcliente table
   row_id <- dbGetQuery(db, sprintf("SELECT row_id 
@@ -19,6 +19,9 @@ appendDonate <- function(db, input){
   beneficiario_id <- dbGetQuery(db, sprintf("SELECT beneficiario_id 
                                      FROM beneficiario_df 
                                     WHERE nombre = '%s';", input$beneficiario))
+  
+
+  print(millasBeneficiario)
   
   # Only is possible positive values
   if(millasNetas >= 0){

@@ -469,7 +469,8 @@ server <- function(input, output, session) {
       if(quaryDonate == 1){
         modalDialog(
           title = "Advertencia",
-          paste("Millas insuficientes del Cliente. Acción no ejecutada."),easyClose = TRUE
+          paste("Millas insuficientes del Cliente. Acción no ejecutada."),easyClose = TRUE,
+          footer = modalButton("Cerrar")
         ) 
       }
     )
