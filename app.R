@@ -25,6 +25,7 @@ source(here::here('./tables_sql/tables_SQL.R'))
 source(here::here('./helpers/mandatoryFilled.R'))
 source(here::here('./helpers/changeUpper.R'))
 source(here::here('./helpers/onlyNumbers.R'))
+source(here::here('./helpers/tableDownloadbutton.R'))
 
 source(here::here('./clients/entry_form.R'))
 source(here::here('./clients/appendData.R'))
@@ -41,6 +42,12 @@ source(here::here('./beneficiaries/deleteDataBeneficiaries.R'))
 
 source(here::here('./miles/formDonate.R'))
 source(here::here('./miles/appendDonate.R'))
+source(here::here('./miles/queryTableDonate.R'))
+
+source(here::here('./diners/formCanje.R'))
+source(here::here('./diners/appendCanje.R'))
+source(here::here('./diners/queryTableCanje.R'))
+
 
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
@@ -96,11 +103,7 @@ labelMandatory <- function(label) {
 
 appCSS <- ".mandatory_star { color: red; }"
 
-### Button functions ###
-tableDownloadbutton <- function(outputId, label = NULL){
-  tags$a(id = outputId, class = "btn btn-default shiny-download-link", href = "", 
-         target = "_blank", download = NA, icon("download"), label)
-}
+
 
 
 #--------Shiny APP---------
@@ -116,7 +119,7 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
     tags$li(
       class = "dropdown",
       tags$a(
-        icon("spaghetti-monster-flying"),
+        icon("ghost"),
         href = "https://raulaviles.netlify.app/",
         title = "Autor"
       )
@@ -128,7 +131,8 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
     sidebarMenu(
       menuItem("Clientes", tabName = "Clientes", icon = icon("user")),
       menuItem("Beneficiarios", tabName = "Beneficiarios", icon = icon("face-smile")),
-      menuItem("Asignación", tabName = "Asignación", icon = icon("wand-magic-sparkles"))
+      menuItem("Asignación", tabName = "Asignación", icon = icon("wand-magic-sparkles")),
+      menuItem("Canje", tabName = "Canje", icon = icon("hand-holding-dollar"))
     )
   ),
   dashboardBody(
@@ -160,17 +164,6 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
      });"
       )),
     ),
-    tags$style(HTML("
-                    .content { padding: 50px; }
-                    
-                    .download-container{
-                      text-align: right;
-                      padding-right: 10px;
-                      top: 0px;
-                      height: 20px;
-                    }
-                    
-                    ")),
     
     shinyauthr::loginUI(
       id = "login", 
@@ -183,14 +176,17 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
       tabItems(
         tabItem(tabName = "Clientes",
                 fluidRow(
-                  actionButton("add_button", "Añadir", icon("plus")),
-                  actionButton("edit_button", "Editar", icon("edit")),
-                  actionButton("delete_button", "Eliminar", icon("trash-alt")),
+                  column(width = 9,
+                         actionButton("add_button", "Añadir", icon("plus")),
+                         actionButton("edit_button", "Editar", icon("edit")),
+                         actionButton("delete_button", "Eliminar", icon("trash-alt")),
+                         ),
+                  column(width = 3,
+                         uiOutput("download"),
+                         ),
                   
                 ),
-                fluidRow(
-                  uiOutput("download"),
-                ),
+                
                 br(),
                 fluidRow(width="100%",
                          DT::dataTableOutput("responses_table")
@@ -214,9 +210,21 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
         tabItem(tabName = "Asignación",
                 fluidRow(
                   actionButton("donate", "Asignar", icon("bolt"))
-                )
+                ),
+                br(),
+                fluidRow(width="100%",
+                         DT::dataTableOutput("table_assignment"))
+                ),
+        tabItem(tabName = "Canje",
+                fluidRow(
+                  actionButton("exchange", "Canjear", icon("gifts"))
+                ),
+                br(),
+                fluidRow(width="100%",
+                         DT::dataTableOutput("table_exchange"))
                 
                 )
+        
         
       )
     )
@@ -277,6 +285,9 @@ server <- function(input, output, session) {
     input$delete_button
     input$yes_button
     
+    input$submitDonate
+    input$submitCanje
+    
     dbReadTable(db, "responses_df")
   })
   
@@ -287,9 +298,42 @@ server <- function(input, output, session) {
     input$delete_beneficiario
     input$yes_buttonBe
     
+    input$submitDonate
+    input$submitCanje
+    
     dbReadTable(db, "beneficiario_df")
   })
   
+  # Enter the inputs to make the DONATE table reactive
+  table_assignment <- reactive({
+    input$submitDonate
+    input$submitCanje
+    
+    input$submit
+    input$submit_edit
+    input$delete_button
+    input$yes_button
+    
+    input$submitBe
+    input$submit_edit_Be
+    input$delete_beneficiario
+    input$yes_buttonBe
+    
+    
+    queryTableDonate(db)
+  })
+  
+  # Enter the inputs to make the DINERS table reactive
+  table_exchange <- reactive({
+    input$submitCanje
+    
+    input$submitBe
+    input$submit_edit_Be
+    input$delete_beneficiario
+    input$yes_buttonBe
+    
+    queryTableCanje(db)
+  })
   
   
   # Enter the name of the fields that should be mandatory to fill out CLIENTES
@@ -306,8 +350,14 @@ server <- function(input, output, session) {
   fieldsMandatoryBeE <- c("nombreBeE", "sexoBeE", "edadBeE", "cedulaBeE", "emailBeE", "estadoBeE")
   mandatoryFilled("submit_edit_Be", fieldsMandatoryBeE, input)
   
+  # Enter the name of the fields that should be mandatory to fill out benefcliente TABLE
   fieldsMandatoryDonate <- c("cliente", "beneficiario", "millasrecibidas")
   mandatoryFilled("submitDonate", fieldsMandatoryDonate, input)
+  
+  # Enter the name of the fields that should be mandatory to fill out DINERS TABLE
+  fieldsMandatoryCanje <- c("beneficiarioCj", "millascanjeadas")
+  mandatoryFilled("submitCanje", fieldsMandatoryCanje, input)
+  
   
   #____Add Data_____
   # Function to save the data into df format
@@ -447,7 +497,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # update data of beneficiarie cedula in the Form
+  # update data of beneficiarie cedula and Miles in the Form
   observeEvent(input$beneficiario, priority = 20, {
     if(input$beneficiario != ""){
       cedulaBeneficiario <- dbGetQuery(db, sprintf("SELECT cedula FROM beneficiario_df WHERE nombre = '%s';", input$beneficiario))
@@ -469,12 +519,13 @@ server <- function(input, output, session) {
       if(quaryDonate == 1){
         modalDialog(
           title = "Advertencia",
-          paste("Millas insuficientes del Cliente. Acción no ejecutada."),easyClose = TRUE,
+          paste("Millas insuficientes del Cliente o no se puede asignar millas negativas. Acción no ejecutada."),easyClose = TRUE,
           footer = modalButton("Cerrar")
         ) 
       }
     )
     if(quaryDonate == 0){
+      resetOutputs()
       shinyjs::reset("formDonate")
       removeModal() 
     }
@@ -487,9 +538,62 @@ server <- function(input, output, session) {
     output$millasBeneficiario <- renderText({ "" })
   }
   
-  observeEvent({input$modal_visible == FALSE}, priority = 20,{
+  observeEvent({input$modal_visible == FALSE}, priority = 10,{
     resetOutputs()
   }, ignoreInit = TRUE)
+  
+  
+  #____________EXCHANGE MILES WITH CLUB MILES___________________
+  observeEvent(input$exchange, priority = 20, {
+    formCanje("submitCanje", db, input, labelMandatory)
+  })
+  
+  # update data of beneficiarie cedula and Miles in the Form
+  observeEvent(input$beneficiarioCj, priority = 20, {
+    if(input$beneficiarioCj != ""){
+      cedulaBeneficiarioCj <- dbGetQuery(db, sprintf("SELECT cedula FROM beneficiario_df WHERE nombre = '%s';", input$beneficiarioCj))
+      print(cedulaBeneficiarioCj[1,1])
+      output$cedulaBeneficiarioCj <- renderText({
+        paste("Cédula Beneficiario: ", cedulaBeneficiarioCj[1,1])
+      })
+      millasBeneficiarioCj <- dbGetQuery(db, sprintf("SELECT millasrecibidas FROM beneficiario_df WHERE nombre = '%s';", input$beneficiarioCj))
+      print(millasBeneficiarioCj[1,1])
+      output$millasBeneficiarioCj <- renderText({
+        paste("Millas Beneficiario: ", millasBeneficiarioCj[1,1])
+      })
+      updateSliderInput(session, "millascanjeadas", value = as.numeric(millasBeneficiarioCj[1,1]), min = 0, max = as.numeric(millasBeneficiarioCj[1,1]))
+    } 
+  })
+  
+  observeEvent(input$submitCanje, priority = 20, {
+    quaryCanje <- appendCanje(db, input)
+    showModal(
+      if(quaryCanje == 1){
+        modalDialog(
+          title = "Advertencia",
+          paste("Millas insuficientes del Beneficiario o no se puede canjear millas negativas. Acción no ejecutada."),easyClose = TRUE,
+          footer = modalButton("Cerrar")
+        ) 
+      }
+    )
+    if(quaryCanje == 0){
+      resetOutputsCj()
+      shinyjs::reset("formCanje")
+      removeModal() 
+    }
+    
+  })
+  
+  resetOutputsCj <- function() {
+    output$cedulaBeneficiarioCj <- renderText({ "" })
+    output$millasBeneficiarioCj <- renderText({ "" })
+  }
+  
+  observeEvent({input$modal_visible == FALSE}, priority = 10,{
+    resetOutputsCj()
+  }, ignoreInit = TRUE)
+  
+  
   
   #____Download button_____
   # Download function DataBase
@@ -499,7 +603,7 @@ server <- function(input, output, session) {
   })
   
   output$download_button <- downloadHandler(
-    filename = function() {"respaldo.xlsx"},
+    filename = function() {"respaldoClientes.xlsx"},
     content = function(file){writexl::write_xlsx(download_df(), file)
     })
   
@@ -518,14 +622,18 @@ server <- function(input, output, session) {
     table <- responses_df() %>% select(-c(row_id, beneficiario_id)) 
     names(table) <- c(
       "Nombre", "Sexo", "Edad", "Millas", "Cédula", "Email", "Commentario", "Creado")
-    table <- datatable(table, 
+    table <- datatable(table,
+                       extensions = 'Responsive',
                        rownames = FALSE,
                        options = list(
                          searching = TRUE, 
-                         lengthChange = TRUE,
-                         bSortClasses = TRUE,iDisplayLength = 10,   width = "100%",
+                         lengthChange = FALSE,
+                         bSortClasses = TRUE,
+                         iDisplayLength = 10,   
+                         width = "100%",
                          scrollX=TRUE,
-                         autoWidth = TRUE,
+                         scrollY = "200px",
+                         autoWidth = FALSE,
                          columnDefs = list(
                            list(width = '100px', targets = "_all") # Adjust the width as needed
                          )
@@ -540,13 +648,48 @@ server <- function(input, output, session) {
       "Nombre", "Sexo", "Edad", "Millas Recibidas","Cédula", "Email", "Estado", "Creado"
     )
     table <- datatable(table,
+                       extensions = 'Responsive',
                        rownames = FALSE,
                        options = list(
                          searching = TRUE, 
-                         lengthChange = TRUE,
-                         bSortClasses = TRUE,iDisplayLength = 10,   width = "100%",
+                         lengthChange = FALSE,
+                         bSortClasses = TRUE,
+                         iDisplayLength = 10,   
+                         width = "100%",
                          scrollX=TRUE,
-                         autoWidth = TRUE,
+                         scrollY = "200px",
+                         autoWidth = FALSE,
+                         columnDefs = list(
+                           list(width = '100px', targets = "_all") # Adjust the width as needed
+                         )
+                       ))
+    
+  })
+  
+  #__________Displaying the Data Table DONATE_________________
+  output$table_assignment <- DT::renderDataTable({
+    table <- table_assignment()
+    names(table) <- c(
+      "Nombre Cliente", 
+      "Cédula Cliente", 
+      "Nombre Beneficiario",
+      "Cédula Beneficiario",
+      "Millas Acumuladas Beneficiario",
+      "Millas Transacción",
+      "Fecha Transacción"
+    )
+    table <- datatable(table,
+                       extensions = 'Responsive',
+                       rownames = FALSE,
+                       options = list(
+                         searching = TRUE, 
+                         lengthChange = FALSE,
+                         bSortClasses = TRUE,
+                         iDisplayLength = 10,   
+                         width = "100%",
+                         scrollX=TRUE,
+                         scrollY = "200px",
+                         autoWidth = FALSE,
                          columnDefs = list(
                            list(width = '100px', targets = "_all") # Adjust the width as needed
                          )
@@ -555,6 +698,36 @@ server <- function(input, output, session) {
   })
   
   
+  #__________Displaying the Data Table DINERS_________________
+  output$table_exchange <- DT::renderDataTable({
+    table <- table_exchange()
+    names(table) <- c(
+      "Nombre Beneficiario",
+      "Cédula Beneficiario",
+      "Correo",
+      "Estado",
+      "Millas Acumuladas Beneficiario",
+      "Millas Canjeadas en Club Miles",
+      "Fecha Transacción"
+    )
+    table <- datatable(table,
+                       extensions = 'Responsive',
+                       rownames = FALSE,
+                       options = list(
+                         searching = TRUE, 
+                         lengthChange = FALSE,
+                         bSortClasses = TRUE,
+                         iDisplayLength = 10,   
+                         width = "100%",
+                         scrollX=TRUE,
+                         scrollY = "200px",
+                         autoWidth = FALSE,
+                         columnDefs = list(
+                           list(width = '100px', targets = "_all") # Adjust the width as needed
+                         )
+                       ))
+    
+  })
   
   
 }

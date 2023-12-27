@@ -4,13 +4,13 @@ appendDonate <- function(db, input){
                                      FROM responses_df 
                                      WHERE nombre = '%s';", input$cliente))
   
-  millasNetas <- millasCliente - input$millasrecibidas
+  millasNetas <- as.numeric(millasCliente) - input$millasrecibidas
   
   millasBeneficiario <- dbGetQuery(db, sprintf("SELECT millasrecibidas 
                                      FROM beneficiario_df 
                                     WHERE nombre = '%s';", input$beneficiario))
   
-  millasBeneficiario <- ifelse(is.na(millasBeneficiario), 0 , millasBeneficiario)
+  millasBeneficiario <- ifelse(is.na(millasBeneficiario), 0 , as.numeric(millasBeneficiario))
   
   # the values to setup benefcliente table
   row_id <- dbGetQuery(db, sprintf("SELECT row_id 
@@ -24,20 +24,20 @@ appendDonate <- function(db, input){
   print(millasBeneficiario)
   
   # Only is possible positive values
-  if(millasNetas >= 0){
+  if(millasNetas >= 0 & input$millasrecibidas>0){
     dbExecute(db, sprintf("UPDATE responses_df 
                           SET millas = '%s'
                           WHERE nombre = '%s';", as.numeric(millasNetas), input$cliente))
     
-    millasBeResult <- millasBeneficiario + input$millasrecibidas
+    millasBeResult <- as.numeric(millasBeneficiario) + input$millasrecibidas
       
     dbExecute(db, sprintf("UPDATE beneficiario_df 
                           SET millasrecibidas = '%s'
                           WHERE nombre = '%s';", as.numeric(millasBeResult), input$beneficiario))
     
     dbExecute(db, sprintf("INSERT INTO
-                            benefcliente (beneficiario_id, row_id)
-                           VALUES ('%s', '%s');", beneficiario_id, row_id))
+                            benefcliente (beneficiario_id, row_id, millas)
+                           VALUES ('%s', '%s', '%s');", beneficiario_id, row_id, input$millasrecibidas))
     quary <- 0
     quary
   }

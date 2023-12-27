@@ -7,6 +7,7 @@ deleteDataClient <- function(db, input){
   deleteData <- reactive({
     quary <- lapply(row_selection$rows, function(nr){
       dbExecute(db, sprintf("DELETE FROM clientePlanes WHERE row_id = '%s';", nr))
+      dbExecute(db, sprintf("DELETE FROM benefcliente WHERE row_id = '%s';", nr))
       dbExecute(db, sprintf("DELETE FROM responses_df WHERE row_id = '%s'", nr))
     })
   })

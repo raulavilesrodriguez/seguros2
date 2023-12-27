@@ -21,7 +21,8 @@ body{
 
 
 a:link {
-  color: #5D8CBB;
+  /*color: #5D8CBB;*/
+  color:#7E30E1;
 }
 
 .profile-img{
@@ -97,7 +98,12 @@ a:visited {
   
 }
 
+.content { padding: 50px; }
 
+.download-container{
+  text-align: center;
+  padding: 10px;
+}
 
 
 

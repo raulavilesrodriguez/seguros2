@@ -30,7 +30,6 @@ tables_SQL <- function(db){
                              email = character(),
                              comentario = character(),
                              creado = as.Date(character()),
-                             beneficiario_id = character(),
                              stringsAsFactors = FALSE
   )
   
@@ -122,18 +121,33 @@ tables_SQL <- function(db){
   try({
     dbExecute(db,
               "CREATE TABLE benefcliente(
+                bc_id serial PRIMARY KEY,
               	beneficiario_id VARCHAR NOT NULL,
               	row_id VARCHAR NOT NULL,
-              	PRIMARY KEY (beneficiario_id, row_id),
               	FOREIGN KEY (beneficiario_id)
               		REFERENCES beneficiario_df (beneficiario_id),
               	FOREIGN KEY (row_id)
               		REFERENCES responses_df (row_id),
+              	millas INT DEFAULT 0,
               	fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
                 );"
     )
   }, silent = TRUE)
   
+  
+  # Create Diners Table to change miles
+  try({
+    dbExecute(db,
+              "CREATE TABLE diners(
+                diners_id serial PRIMARY KEY,
+                beneficiario_id VARCHAR NOT NULL,
+                FOREIGN KEY (beneficiario_id)
+              		REFERENCES beneficiario_df (beneficiario_id),
+              	millascanjeadas INT DEFAULT 0,
+              	fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+              );"
+              )
+  }, silent = TRUE)
   
   return(responses_df)
 }
