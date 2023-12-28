@@ -9,6 +9,9 @@ deleteDataBeneficiaries <- function(db, input){
       try({
         dbExecute(db, sprintf("DELETE FROM benefcliente WHERE beneficiario_id = '%s';", nr))
       }, silent = TRUE)
+      try({
+        dbExecute(db, sprintf("DELETE FROM diners WHERE beneficiario_id = '%s';", nr))
+      }, silent = TRUE)
       dbExecute(db, sprintf("DELETE FROM beneficiario_df WHERE beneficiario_id = '%s'", nr))
     })
   })

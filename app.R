@@ -132,7 +132,8 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
       menuItem("Clientes", tabName = "Clientes", icon = icon("user")),
       menuItem("Beneficiarios", tabName = "Beneficiarios", icon = icon("face-smile")),
       menuItem("Asignación", tabName = "Asignación", icon = icon("wand-magic-sparkles")),
-      menuItem("Canje", tabName = "Canje", icon = icon("hand-holding-dollar"))
+      menuItem("Canje", tabName = "Canje", icon = icon("hand-holding-dollar")),
+      menuItem("Estadísticas", tabName = "Estadísticas", icon =  icon("chart-line"))
     )
   ),
   dashboardBody(
@@ -223,6 +224,24 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                 fluidRow(width="100%",
                          DT::dataTableOutput("table_exchange"))
                 
+                ),
+        tabItem(tabName = "Estadísticas",
+                selectInput("staticsBe", "Beneficiario", choices = NULL, multiple = FALSE),
+                br(),
+                fluidRow(
+                  
+                  valueBoxOutput("emailBeneficiario", width = 6),
+                  
+                  
+                ),
+                fluidRow(
+                  valueBoxOutput("edadBeneficiario"),
+                  valueBoxOutput("millasBeneficiario"),
+                  valueBoxOutput("trxClients")
+                  
+                  
+                  
+                )
                 )
         
         
@@ -614,6 +633,42 @@ server <- function(input, output, session) {
                   placement = "left", trigger = "hover")
         )
   })
+  
+  
+  #________________STATICS BENEFICIARIES_____________________
+  SQL_beneficiarios <- dbReadTable(db, "beneficiario_df")
+  updateSelectInput(session, "staticsBe", choices = SQL_beneficiarios[,c("nombre")])
+  
+  observeEvent(input$staticsBe, priority = 20, {
+    edadBeneficiario <- dbGetQuery(db, sprintf("SELECT edad 
+                                     FROM beneficiario_df 
+                                    WHERE nombre = '%s';", input$staticsBe))
+    emailBeneficiario <- dbGetQuery(db, sprintf("SELECT email 
+                                     FROM beneficiario_df 
+                                    WHERE nombre = '%s';", input$staticsBe))
+    millasBeneficiario <- dbGetQuery(db, sprintf("SELECT millasrecibidas 
+                                     FROM beneficiario_df 
+                                    WHERE nombre = '%s';", input$staticsBe))
+    
+    
+    output$edadBeneficiario <- renderValueBox({
+      valueBox(
+        edadBeneficiario, "Edad", icon = icon("person-arrow-up-from-line"), color = "purple"
+      )
+    })
+    output$emailBeneficiario <- renderValueBox({
+      valueBox(
+        "Correo", emailBeneficiario, icon = icon("envelopes-bulk"), 
+        color = "yellow"
+      )
+    })
+    output$millasBeneficiario <- renderValueBox({
+      valueBox(
+        millasBeneficiario, "Millas Acumuladas", icon = icon("cart-shopping"), color = "green"
+      )
+    })
+  })
+  
   
   
   
