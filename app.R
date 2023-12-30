@@ -48,6 +48,8 @@ source(here::here('./diners/formCanje.R'))
 source(here::here('./diners/appendCanje.R'))
 source(here::here('./diners/queryTableCanje.R'))
 
+source(here::here('./statics/updateInStaticsBe.R'))
+source(here::here('./statics/dataBoxStaticsBe.R'))
 
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
@@ -229,21 +231,15 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                 selectInput("staticsBe", "Beneficiario", choices = NULL, multiple = FALSE),
                 br(),
                 fluidRow(
-                  
-                  valueBoxOutput("emailBeneficiario", width = 6),
-                  
-                  
+                  valueBoxOutput("emailBeStat1", width = 6),
+                  valueBoxOutput("cedulaBeStat1", width = 6)
                 ),
                 fluidRow(
-                  valueBoxOutput("edadBeneficiario"),
-                  valueBoxOutput("millasBeneficiario"),
-                  valueBoxOutput("trxClients")
-                  
-                  
-                  
+                  valueBoxOutput("edadBeStat1"),
+                  valueBoxOutput("millasBeStat1"),
+                  valueBoxOutput("millasCanjeadasBe1")
                 )
                 )
-        
         
       )
     )
@@ -557,7 +553,7 @@ server <- function(input, output, session) {
     output$millasBeneficiario <- renderText({ "" })
   }
   
-  observeEvent({input$modal_visible == FALSE}, priority = 10,{
+  observeEvent({input$modal_visible == FALSE}, priority = 20,{
     resetOutputs()
   }, ignoreInit = TRUE)
   
@@ -608,7 +604,7 @@ server <- function(input, output, session) {
     output$millasBeneficiarioCj <- renderText({ "" })
   }
   
-  observeEvent({input$modal_visible == FALSE}, priority = 10,{
+  observeEvent({input$modal_visible == FALSE}, priority = 20,{
     resetOutputsCj()
   }, ignoreInit = TRUE)
   
@@ -636,37 +632,12 @@ server <- function(input, output, session) {
   
   
   #________________STATICS BENEFICIARIES_____________________
-  SQL_beneficiarios <- dbReadTable(db, "beneficiario_df")
-  updateSelectInput(session, "staticsBe", choices = SQL_beneficiarios[,c("nombre")])
+  x <- dbReadTable(db, "beneficiario_df")
+  updateSelectInput(session, "staticsBe", choices = x[,"nombre"])
+  updateInStaticsBe(db, input, session)
   
   observeEvent(input$staticsBe, priority = 20, {
-    edadBeneficiario <- dbGetQuery(db, sprintf("SELECT edad 
-                                     FROM beneficiario_df 
-                                    WHERE nombre = '%s';", input$staticsBe))
-    emailBeneficiario <- dbGetQuery(db, sprintf("SELECT email 
-                                     FROM beneficiario_df 
-                                    WHERE nombre = '%s';", input$staticsBe))
-    millasBeneficiario <- dbGetQuery(db, sprintf("SELECT millasrecibidas 
-                                     FROM beneficiario_df 
-                                    WHERE nombre = '%s';", input$staticsBe))
-    
-    
-    output$edadBeneficiario <- renderValueBox({
-      valueBox(
-        edadBeneficiario, "Edad", icon = icon("person-arrow-up-from-line"), color = "purple"
-      )
-    })
-    output$emailBeneficiario <- renderValueBox({
-      valueBox(
-        "Correo", emailBeneficiario, icon = icon("envelopes-bulk"), 
-        color = "yellow"
-      )
-    })
-    output$millasBeneficiario <- renderValueBox({
-      valueBox(
-        millasBeneficiario, "Millas Acumuladas", icon = icon("cart-shopping"), color = "green"
-      )
-    })
+    dataBoxStaticsBe(db, input, output, session)
   })
   
   

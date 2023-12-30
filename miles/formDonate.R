@@ -3,7 +3,7 @@ formDonate <- function(button_id, db, input, labelMandatory){
   SQL_beneficiarios <- dbReadTable(db, "beneficiario_df")
   showModal(
     modalDialog(
-      div(id=("donate_form"),
+      div(
           tags$head(tags$style(".modal-dialog{ width:400px}")), #Modify the width of the dialog
           tags$head(tags$style(HTML(".shiny-split-layout > div {overflow: visible}"))), #Necessary to show the input options
           fluidPage(
