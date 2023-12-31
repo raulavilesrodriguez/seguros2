@@ -238,6 +238,11 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                   valueBoxOutput("edadBeStat1"),
                   valueBoxOutput("millasBeStat1"),
                   valueBoxOutput("millasCanjeadasBe1")
+                ),
+                fluidRow(
+                  valueBoxOutput("namesClientes1", width = 6),
+                  valueBoxOutput("transxClientes1", width = 6),
+                  valueBoxOutput("transxDiners1")
                 )
                 )
         

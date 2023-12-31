@@ -20,12 +20,25 @@ dataBoxStaticsBe <- function(db, input, output, session){
                                       WHERE beneficiario_id = '%s';",
                                                beneficiario_id))
   print(sum(dinersBeneficiario[,1]))
+  transxDiners <- nrow(dinersBeneficiario)
   
-  rows_id <- dbGetQuery(db, sprintf("SELECT row_id
-                                      FROM benefcliente
-                                      WHERE beneficiario_id = '%s';", 
+  SQL_Clientes <- dbGetQuery(db, sprintf("SELECT
+                                        r.nombre,
+                                        c.millas
+                                      FROM
+                                        benefcliente c
+                                      INNER JOIN responses_df r
+                                      	ON r.row_id = c.row_id
+                                      WHERE c.beneficiario_id = '%s';", 
                                     beneficiario_id))
   
+  num_clientes <- SQL_Clientes |> group_by(nombre) |>
+                  summarize(num_of_nombres = n())
+  
+  clientesNombresJoin <- paste(c(num_clientes[['nombre']]), collapse = ", ")
+  print(clientesNombresJoin)
+  
+  transxClientes <- nrow(SQL_Clientes)
   
   output$edadBeStat1 <- renderValueBox({
     valueBox(
@@ -54,8 +67,24 @@ dataBoxStaticsBe <- function(db, input, output, session){
       sum(dinersBeneficiario[,1]), "Millas Canjeadas", icon = icon("gift"), color = "maroon"
     )
   })
-  
-  
+  output$namesClientes1 <- renderValueBox({
+    valueBox(
+      "Clientes Asoc", clientesNombresJoin, icon = icon("people-pulling"),
+      color = "purple"
+    )
+  })
+  output$transxClientes1 <- renderValueBox({
+    valueBox(
+      transxClientes, "No. Transacciones Clientes", icon = icon("money-bill-transfer"),
+      color = "light-blue"
+    )
+  })
+  output$transxDiners1 <- renderValueBox({
+    valueBox(
+      transxDiners, "No. Transacciones Club Miles", icon = icon("face-smile-wink"),
+      color = "teal"
+    )
+  })
   
   
   
