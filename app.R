@@ -51,6 +51,12 @@ source(here::here('./diners/queryTableCanje.R'))
 source(here::here('./statics/updateInStaticsBe.R'))
 source(here::here('./statics/dataBoxStaticsBe.R'))
 
+source(here::here('./plans/entry_formPlans.R'))
+source(here::here('./plans/appendPlans.R'))
+source(here::here('./plans/updateDataPlans.R'))
+source(here::here('./plans/appendEditPlans.R'))
+
+
 #Read the database connection parameters from the config.yml
 config_file <- "config.yml"
 config <- config::get(file = config_file)
@@ -135,7 +141,8 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
       menuItem("Beneficiarios", tabName = "Beneficiarios", icon = icon("face-smile")),
       menuItem("Asignación", tabName = "Asignación", icon = icon("wand-magic-sparkles")),
       menuItem("Canje", tabName = "Canje", icon = icon("hand-holding-dollar")),
-      menuItem("Estadísticas", tabName = "Estadísticas", icon =  icon("chart-line"))
+      menuItem("Estadísticas", tabName = "Estadísticas", icon =  icon("chart-line")),
+      menuItem("Planes", tabName = "Planes", icon = icon("sheet-plastic"))
     )
   ),
   dashboardBody(
@@ -199,7 +206,7 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                 fluidRow(
                   actionButton("add_beneficiario", "Añadir", icon("plus")),
                   actionButton("edit_beneficiario", "Editar", icon("edit")),
-                  actionButton("delete_beneficiario", "Eliminar", icon("trash-alt")),
+                  actionButton("delete_beneficiario", "Eliminar", icon("trash-alt"))
                 ),
                 fluidRow(
                   uiOutput("downloadBe"),
@@ -244,6 +251,16 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                   valueBoxOutput("transxClientes1", width = 6),
                   valueBoxOutput("transxDiners1")
                 )
+                ),
+        tabItem(tabName = "Planes",
+                fluidRow(
+                  actionButton("add_plan", "Añadir", icon("plus")),
+                  actionButton("edit_plan", "Editar", icon("edit"))
+                  
+                ),
+                br(),
+                fluidRow(width="100%",
+                         DT::dataTableOutput("table_planes"))
                 )
         
       )
@@ -355,6 +372,13 @@ server <- function(input, output, session) {
     queryTableCanje(db)
   })
   
+  # Enter the inputs to make the PLANES table reactive
+  table_planes <- reactive({
+    input$submitPlan
+    input$submit_editPlan
+    
+    dbReadTable(db, "planes")
+  })
   
   # Enter the name of the fields that should be mandatory to fill out CLIENTES
   fieldsMandatoryClient <- c("nombre", "sexo", "edad", "millas", "cedula", "email", "planes")
@@ -377,6 +401,20 @@ server <- function(input, output, session) {
   # Enter the name of the fields that should be mandatory to fill out DINERS TABLE
   fieldsMandatoryCanje <- c("beneficiarioCj", "millascanjeadas")
   mandatoryFilled("submitCanje", fieldsMandatoryCanje, input)
+  
+  # Enter the name of the fields that should be mandatory to fill out PLANES TABLE
+  fieldsMandatoryPlans <- c("nombrePlan")
+  mandatoryFilled("submitPlan", fieldsMandatoryPlans, input)
+  
+  observeEvent({input$modal_visible == FALSE}, priority = 20,{
+    mandatoryFilled("submit", fieldsMandatoryClient, input)
+    mandatoryFilled("submit_edit", fieldsMandatoryClient, input)
+    mandatoryFilled("submitBe", fieldsMandatoryBe, input)
+    mandatoryFilled("submit_edit_Be", fieldsMandatoryBeE, input)
+    mandatoryFilled("submitDonate", fieldsMandatoryDonate, input)
+    mandatoryFilled("submitCanje", fieldsMandatoryCanje, input)
+    mandatoryFilled("submitPlan", fieldsMandatoryPlans, input)
+  }, ignoreInit = TRUE)
   
   
   #____Add Data_____
@@ -495,6 +533,53 @@ server <- function(input, output, session) {
   })
   
   
+  #_______________PLANS TAB_________________________________________
+  #_____ADD PLANS________
+  formDataPlans <- reactive({
+    
+    newNamePl <- changeUpper(input$nombrePlan)
+    
+    formDataPlans <- data.frame(
+                             nombre_plan = newNamePl,
+                             stringsAsFactors = FALSE)
+    return(formDataPlans)
+  })
+  
+  observeEvent(input$add_plan, priority = 20, {
+    entry_formPlans("submitPlan", db, labelMandatory)
+  })
+  
+  
+  observeEvent(input$submitPlan, priority = 20, {
+    quaryPl <- appendPlans(formDataPlans(), db, input)
+    showModal(
+      if(quaryPl == 1){
+        modalDialog(
+          title = "Advertencia",
+          paste("No pueden haber 2 Planes iguales" ),easyClose = TRUE,
+          footer = modalButton("Cerrar")
+        ) 
+      }
+    )
+    if(quaryPl == 0){
+      shinyjs::reset("entry_formPlans")
+      removeModal() 
+    }
+  })
+  
+  #_______EDIT PLANS________
+  observeEvent(input$edit_plan, priority = 20, {
+    updateDataPlans(db, input, session, labelMandatory)
+  })
+  
+  observeEvent(input$submit_editPlan, priority = 20, {
+    appendEditPlans(db, input)
+  })
+  
+  
+  
+  
+  
   #__________ASSIGN MILLES FROM CLIENT TO BENEFICIARIES_____________
   observeEvent(input$donate, priority = 20, {
     formDonate("submitDonate", db, input, labelMandatory)
@@ -560,6 +645,7 @@ server <- function(input, output, session) {
   
   observeEvent({input$modal_visible == FALSE}, priority = 20,{
     resetOutputs()
+    mandatoryFilled("submitPlan", fieldsMandatoryPlans, input)
   }, ignoreInit = TRUE)
   
   
@@ -760,6 +846,30 @@ server <- function(input, output, session) {
     
   })
   
+  #__________Displaying the Data Table DINERS_________________
+  output$table_planes <- DT::renderDataTable({
+    table <- table_planes() |> select(-c(planes_id))
+    names(table) <- c(
+      "Nombre del Plan"
+    )
+    table <- datatable(table,
+                       extensions = 'Responsive',
+                       rownames = FALSE,
+                       options = list(
+                         searching = TRUE, 
+                         lengthChange = FALSE,
+                         bSortClasses = TRUE,
+                         iDisplayLength = 10,   
+                         width = "100%",
+                         scrollX=TRUE,
+                         scrollY = "200px",
+                         autoWidth = FALSE,
+                         columnDefs = list(
+                           list(width = '100px', targets = "_all") # Adjust the width as needed
+                         )
+                       ))
+    
+  })
   
 }
 
