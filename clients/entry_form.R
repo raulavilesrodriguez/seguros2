@@ -18,7 +18,7 @@ entry_form <- function(button_id, db, labelMandatory){
               numericInput("millas", labelMandatory("Millas"), value = "", min = 0),
               textInput("cedula", labelMandatory("Cédula"), placeholder = ""),
               textInput("email", labelMandatory("Email"), placeholder = ""),
-              checkboxGroupInput("planes", labelMandatory('Planes'), SQL_planes[,"nombre_plan"], selected = NULL, inline = TRUE),
+              selectizeInput("planes", labelMandatory('Planes'), SQL_planes[,"nombre_plan"], selected = NULL, multiple = TRUE),
               textAreaInput("comentario", "Comentario", placeholder = "", height = 100, width = "354px"),
               helpText(labelMandatory(""), paste("Campo Obligatorio")),
               actionButton(button_id, "Aceptar")
