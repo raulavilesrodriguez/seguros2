@@ -248,8 +248,8 @@ ui <- dashboardPage(title = "Millas App", skin= "purple",
                 ),
                 fluidRow(
                   valueBoxOutput("namesClientes1", width = 6),
-                  valueBoxOutput("transxClientes1", width = 6),
-                  valueBoxOutput("transxDiners1")
+                  valueBoxOutput("transxClientes1", width = 3),
+                  valueBoxOutput("transxDiners1", width = 3)
                 )
                 ),
         tabItem(tabName = "Planes",
@@ -406,6 +406,7 @@ server <- function(input, output, session) {
   fieldsMandatoryPlans <- c("nombrePlan")
   mandatoryFilled("submitPlan", fieldsMandatoryPlans, input)
   
+  # it is to be mandatory fill out the fields when push the botton CERRAR
   observeEvent({input$modal_visible == FALSE}, priority = 20,{
     mandatoryFilled("submit", fieldsMandatoryClient, input)
     mandatoryFilled("submit_edit", fieldsMandatoryClient, input)
@@ -432,7 +433,7 @@ server <- function(input, output, session) {
                            cedula = newCedula,
                            email = input$email,
                            comentario = input$comentario,
-                           creado = as.character(format(Sys.Date(), format="%Y-%m-%d")),
+                           creado = input$dateCliente,
                            stringsAsFactors = FALSE)
     return(formData)
   })
@@ -445,6 +446,17 @@ server <- function(input, output, session) {
     
   })
   
+  # Always DATE will have an value
+  observeEvent(input$dateCliente, priority = 20, {
+    valor <- input$dateCliente
+    if(length(valor) != 0){
+      print("Está biennn")
+      print(class(valor))
+    } else {
+      print("there is nothing")
+      updateDateInput(session, "dateCliente", value = format(as.Date(Sys.Date()), "%Y-%m-%d"))
+    }
+  })
   
   # reset and the modal is removed
   observeEvent(input$submit, priority = 20,{
@@ -454,7 +466,8 @@ server <- function(input, output, session) {
       if(quary == 1){
         modalDialog(
           title = "Advertencia",
-          paste("No pueden haber 2 clientes con el mismo nombre o la misma cédula" ),easyClose = TRUE
+          paste("No pueden haber 2 clientes con el mismo nombre o la misma cédula" ),
+          easyClose = TRUE, footer = modalButton("Cerrar")
         ) 
       }
     )
@@ -487,13 +500,15 @@ server <- function(input, output, session) {
     entry_formBe("submitBe", db, labelMandatory)
   })
   
+  
   observeEvent(input$submitBe, priority = 20, {
     quary <- appendDataBe(formDataBe(), db, input)
     showModal(
       if(quary == 1){
         modalDialog(
           title = "Advertencia",
-          paste("No pueden haber 2 Beneficiarios con la misma cédula" ),easyClose = TRUE
+          paste("No pueden haber 2 Beneficiarios con el mismo nombre o la misma cédula" ),
+          easyClose = TRUE, footer = modalButton("Cerrar")
         ) 
       }
     )
@@ -624,8 +639,8 @@ server <- function(input, output, session) {
       if(quaryDonate == 1){
         modalDialog(
           title = "Advertencia",
-          paste("Millas insuficientes del Cliente o no se puede asignar millas negativas. Acción no ejecutada."),easyClose = TRUE,
-          footer = modalButton("Cerrar")
+          paste("Millas insuficientes del Cliente o no se puede asignar millas negativas. Acción no ejecutada."),
+          easyClose = TRUE, footer = modalButton("Cerrar")
         ) 
       }
     )
@@ -677,8 +692,8 @@ server <- function(input, output, session) {
       if(quaryCanje == 1){
         modalDialog(
           title = "Advertencia",
-          paste("Millas insuficientes del Beneficiario o no se puede canjear millas negativas. Acción no ejecutada."),easyClose = TRUE,
-          footer = modalButton("Cerrar")
+          paste("Millas insuficientes del Beneficiario o no se puede canjear millas negativas. Acción no ejecutada."),
+          easyClose = TRUE, footer = modalButton("Cerrar")
         ) 
       }
     )

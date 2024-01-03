@@ -35,7 +35,8 @@ appendEditBe <- function(db, input){
     showModal(
       modalDialog(
         title = "Advertencia. Cambios no grabados",
-        paste("No pueden haber 2 Beneficiarios con la misma cédula o el mismo nombre" ),easyClose = TRUE
+        paste("No pueden haber 2 Beneficiarios con la misma cédula o el mismo nombre" ),
+        easyClose = TRUE, footer = modalButton("Cerrar")
       )
     )
   }

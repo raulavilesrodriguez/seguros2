@@ -1,16 +1,18 @@
 updateDataEdit <- function(db, input, session, labelMandatory){
-  SQL_df <- dbReadTable(db, "responses_df")
   
+  SQL_df <- dbReadTable(db, "responses_df")
   
   showModal(
     if(length(input$responses_table_rows_selected) > 1 ){
       modalDialog(
         title = "Advertencia",
-        paste("Por favor selecciona solo un cliente" ),easyClose = TRUE)
+        paste("Por favor selecciona solo un cliente" ),
+        easyClose = TRUE, footer = modalButton("Cerrar"))
     } else if(length(input$responses_table_rows_selected) < 1){
       modalDialog(
         title = "Advertencia",
-        paste("Por favor selecciona un cliente" ),easyClose = TRUE)
+        paste("Por favor selecciona un cliente" ),
+        easyClose = TRUE, footer = modalButton("Cerrar"))
     })  
   
   if(length(input$responses_table_rows_selected) == 1 ){
@@ -42,6 +44,7 @@ updateDataEdit <- function(db, input, session, labelMandatory){
     updateTextInput(session, "email", value = SQL_df[input$responses_table_rows_selected, "email"])
     updateSelectizeInput(session, "planes", 'Planes', SQL_planes[,"nombre_plan"], selected = banana)
     updateTextAreaInput(session, "comentario", value = SQL_df[input$responses_table_rows_selected, "comentario"])
+    updateDateInput(session, "dateCliente", value = SQL_df[input$responses_table_rows_selected, "creado"])
     
   }
 }

@@ -21,10 +21,12 @@ entry_formBe <- function(button_id, db, labelMandatory){
               selectInput("estadoBe", labelMandatory("Estado"), multiple = FALSE, choices = c("", "ACTIVO", "INACTIVO"), width = "354px"),
               helpText(labelMandatory(""), paste("Campo Obligatorio")),
               actionButton(button_id, "Aceptar")
-            ),
-            easyClose = TRUE
+            )
           )
-      )
+      ),
+      title = "Ingreso Beneficiarios",
+      easyClose = TRUE,
+      footer = modalButton("Cerrar")
     )
   )
 }

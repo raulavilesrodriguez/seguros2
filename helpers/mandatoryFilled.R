@@ -10,6 +10,7 @@ mandatoryFilled <- function(boton, fieldsMandatory, input){
                !is.null(input[[x]][1]) && input[[x]][1] != ""
              },
              logical(1))
+    
     mandatoryFilled <- all(mandatoryFilled)
     
     shinyjs::toggleState(id = boton, 

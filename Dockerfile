@@ -28,7 +28,9 @@ RUN R -e "install.packages('shinyauthr')"
 RUN R -e "install.packages('readxl')"
 RUN R -e "install.packages('writexl')"
 RUN R -e "install.packages('shinyBS')"
-
+RUN R -e "install.packages('here')"
+RUN R -e "install.packages('stringr')"
+RUN R -e "install.packages('stringi')"
 
 
 

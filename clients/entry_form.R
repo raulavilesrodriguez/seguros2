@@ -19,13 +19,16 @@ entry_form <- function(button_id, db, labelMandatory){
               textInput("cedula", labelMandatory("Cédula"), placeholder = ""),
               textInput("email", labelMandatory("Email"), placeholder = ""),
               selectizeInput("planes", labelMandatory('Planes'), SQL_planes[,"nombre_plan"], selected = NULL, multiple = TRUE),
+              dateInput("dateCliente", "Fecha de creación", value = format(as.Date(Sys.Date()), "%Y-%m-%d"), language = "es"),
               textAreaInput("comentario", "Comentario", placeholder = "", height = 100, width = "354px"),
               helpText(labelMandatory(""), paste("Campo Obligatorio")),
               actionButton(button_id, "Aceptar")
-            ),
-            easyClose = TRUE
+            )
           )
-      )
+      ),
+      title = "Clientes",
+      easyClose = TRUE,
+      footer = modalButton("Cerrar")
     )
   )
 }

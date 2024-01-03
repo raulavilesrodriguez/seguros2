@@ -36,20 +36,22 @@ appendEdit <- function(db, input){
     
     dbExecute(db, sprintf("UPDATE responses_df SET nombre = $1, sexo = $2, 
                           edad = $3, millas = $4, cedula = $5, email = $6,
-                          comentario = $7 WHERE row_id = '%s'", row_selection), 
+                          comentario = $7, creado = $8 WHERE row_id = '%s'", row_selection), 
               param = list(newName,
                            input$sexo,
                            input$edad,
                            input$millas,
                            newCedula,
                            input$email,
-                           input$comentario))
+                           input$comentario,
+                           input$dateCliente))
     removeModal()
   } else {
     showModal(
       modalDialog(
         title = "Advertencia. Cambios no grabados",
-        paste("No pueden haber 2 clientes con la misma cédula o el mismo nombre" ),easyClose = TRUE
+        paste("No pueden haber 2 clientes con la misma cédula o el mismo nombre" ),
+        easyClose = TRUE, footer = modalButton("Cerrar")
       )
     )
   }

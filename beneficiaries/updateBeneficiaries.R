@@ -5,11 +5,13 @@ updateBeneficiaries <- function(db, input, session, labelMandatory){
     if(length(input$table_beneficiaries_rows_selected) > 1 ){
       modalDialog(
         title = "Advertencia",
-        paste("Por favor selecciona solo un Beneficiario" ),easyClose = TRUE)
+        paste("Por favor selecciona solo un Beneficiario" ),
+        easyClose = TRUE, footer = modalButton("Cerrar"))
     } else if(length(input$table_beneficiaries_rows_selected) < 1){
       modalDialog(
         title = "Advertencia",
-        paste("Por favor selecciona un Beneficiario" ),easyClose = TRUE)
+        paste("Por favor selecciona un Beneficiario" ),
+        easyClose = TRUE, footer = modalButton("Cerrar"))
     })  
   
   if(length(input$table_beneficiaries_rows_selected) == 1 ){

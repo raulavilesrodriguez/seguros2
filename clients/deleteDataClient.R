@@ -34,7 +34,8 @@ deleteDataClient <- function(db, input){
       showModal(
         modalDialog(
           title = "Advertencia",
-          paste("Por favor selecciona el/los cliente(s)" ),easyClose = TRUE
+          paste("Por favor selecciona el/los cliente(s)" ),easyClose = TRUE,
+          footer = modalButton("Cerrar")
         ) 
       )
     }
